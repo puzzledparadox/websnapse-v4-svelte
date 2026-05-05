@@ -86,7 +86,10 @@ def get_satisfied_rules(c_k, rules_metadata):
     for neuron_rules in rules_metadata:
         # Each rule index that meets its firing/forgetting condition
         applicable = [r_idx for r_idx, r_check in neuron_rules if r_check(c_k)]
-        satisfied.append(applicable)
+        if not applicable:
+            satisfied.append([None])
+        else:
+            satisfied.append(applicable) 
     return satisfied
 
 def get_all_next_nondet(current_state, rules_metadata, m_pi, stv_k, rule_delays):
@@ -103,7 +106,8 @@ def get_all_next_nondet(current_state, rules_metadata, m_pi, stv_k, rule_delays)
         # Create a zeroed Decision Vector for this specific branch
         dv = np.zeros(m_pi.shape[0], dtype=int)
         for idx in chosen_indices:
-            dv[idx] = 1
+            if idx is not None:
+                dv[idx] = 1
 
         # 3. Use existing matrix math to compute this specific branch
         # This implements: C(k+1) = C(k) + St(k+1) * (Iv * M + STv)
