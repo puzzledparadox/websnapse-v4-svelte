@@ -15,6 +15,20 @@
 	};
 
 	// Svelte 5 Runes for reactive state
+	let tick = $state(0);
+	let systemState = $state({
+		name: 'Fibonacci Generator',
+		m_pi: [
+			[-1, 1, 1],
+			[-2, 0, 0]
+		],
+		stv_k: [0, 0, 0],
+		rule_delays: [1, 0],
+		div: [0, 0],
+		dsv: [0, 0],
+		st_next: [1, 1, 1]
+	});
+
 	let nodes = $state([
 		{
 			id: 'n1',
@@ -86,32 +100,127 @@
 	});
 
 	function handleStep() {
-		// Mocked data for Even Positive Integer Generator
 		simulation.sendState({
-			tick: 0,
+			tick: tick,
 			state: {
-				c_k: [nodes[0].data.spikes, nodes[1].data.spikes, nodes[2].data.spikes],
-				div: [0, 0],
-				dsv: [0, 0],
-				st_next: [1, 1, 1]
+				c_k: nodes.map(n => n.data.spikes),
+				div: systemState.div,
+				dsv: systemState.dsv,
+				st_next: systemState.st_next
 			},
-			m_pi: [
-				[-1, 1, 1],
-				[-2, 0, 0]
-			],
-			stv_k: [0, 0, 0],
-			rule_delays: [1, 0],
+			m_pi: systemState.m_pi,
+			stv_k: systemState.stv_k,
+			rule_delays: systemState.rule_delays,
 			rules: []
 		});
 	}
 
 	function applyBranch(pos) {
-		nodes[0].data.spikes = pos.c_k[0];
-		nodes[1].data.spikes = pos.c_k[1];
-		nodes[2].data.spikes = pos.c_k[2];
-
+		for (let i = 0; i < nodes.length; i++) {
+			if (pos.c_k[i] !== undefined) {
+				nodes[i].data.spikes = pos.c_k[i];
+			}
+		}
+		systemState.div = pos.div;
+		systemState.dsv = pos.dsv;
+		tick++;
+		
 		// Clear possibilities after selection to represent moving to the next step
 		simulation.possibilities = [];
+	}
+
+	function exportSystem() {
+		const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({
+			nodes: nodes,
+			edges: edges,
+			tick: tick,
+			systemState: systemState
+		}));
+		const downloadAnchorNode = document.createElement('a');
+		downloadAnchorNode.setAttribute("href", dataStr);
+		downloadAnchorNode.setAttribute("download", (systemState.name || "system") + ".json");
+		document.body.appendChild(downloadAnchorNode);
+		downloadAnchorNode.click();
+		downloadAnchorNode.remove();
+	}
+
+	let fileInput;
+
+	function importSystem(event) {
+		const file = event.target.files[0];
+		if (!file) return;
+
+		const reader = new FileReader();
+		reader.onload = (e) => {
+			try {
+				const parsed = JSON.parse(e.target.result);
+				// Clear canvas and reset tick
+				nodes = [];
+				edges = [];
+				tick = 0;
+				simulation.possibilities = [];
+
+				// Rehydrate
+				setTimeout(() => {
+					nodes = parsed.nodes || [];
+					edges = parsed.edges || [];
+					tick = parsed.tick || 0;
+					systemState = parsed.systemState || systemState;
+					
+					simulation.reset(); // Send Reset/Initialize command
+				}, 50);
+			} catch (err) {
+				console.error("Failed to parse JSON", err);
+			}
+			// Reset file input
+			event.target.value = '';
+		};
+		reader.readAsText(file);
+	}
+
+	function loadTemplate(type) {
+		nodes = [];
+		edges = [];
+		tick = 0;
+		simulation.possibilities = [];
+		
+		setTimeout(() => {
+			if (type === 'parity') {
+				nodes = [
+					{ id: 'n1', type: 'neuron', position: { x: 250, y: 250 }, data: { id: 'σ₁', neuronType: 'input', spikes: 0, delay: 0, rules: ['a^2/a \\to a; 1'] } }
+				];
+				edges = [];
+				systemState = {
+					name: 'Even Parity Checker',
+					m_pi: [[-2]],
+					stv_k: [0],
+					rule_delays: [0],
+					div: [0],
+					dsv: [0],
+					st_next: [1]
+				};
+			} else if (type === 'fibonacci') {
+				nodes = [
+					{ id: 'n1', type: 'neuron', position: { x: 150, y: 250 }, data: { id: 'σ₁', neuronType: 'input', spikes: 2, delay: 0, rules: ['a^2/a \\to a; 1', 'a \\to \\lambda'] } },
+					{ id: 'n2', type: 'neuron', position: { x: 500, y: 150 }, data: { id: 'σ₂', neuronType: 'output', spikes: 1, delay: 0, rules: [] } },
+					{ id: 'n3', type: 'neuron', position: { x: 500, y: 350 }, data: { id: 'σ₃', neuronType: 'output', spikes: 3, delay: 0, rules: [] } }
+				];
+				edges = [
+					{ id: 'e1-2', source: 'n1', target: 'n2', type: 'synapse', style: 'stroke: #a855f7; stroke-width: 2px;', data: { isFiring: true }, markerEnd: { type: MarkerType.ArrowClosed, color: '#a855f7' } },
+					{ id: 'e1-3', source: 'n1', target: 'n3', type: 'synapse', style: 'stroke: #a855f7; stroke-width: 2px;', data: { isFiring: false }, markerEnd: { type: MarkerType.ArrowClosed, color: '#a855f7' } }
+				];
+				systemState = {
+					name: 'Fibonacci Generator',
+					m_pi: [[-1, 1, 1], [-2, 0, 0]],
+					stv_k: [0, 0, 0],
+					rule_delays: [1, 0],
+					div: [0, 0],
+					dsv: [0, 0],
+					st_next: [1, 1, 1]
+				};
+			}
+			simulation.reset();
+		}, 50);
 	}
 
 	let testStrings = $state([
@@ -172,6 +281,42 @@
 			<div class="flex items-center gap-2">
 				<div class="h-3 w-3 rounded-full {simulation.isConnected ? 'bg-green-500' : 'bg-red-500'}"></div>
 				<span class="text-xs font-medium text-gray-600">{simulation.isConnected ? 'Online' : 'Offline'}</span>
+			</div>
+		</div>
+
+		<!-- Persistence & Gallery -->
+		<div class="border-b pb-4 mb-4">
+			<h3 class="text-sm font-semibold text-gray-700 mb-2">System Persistence</h3>
+			<div class="flex gap-2 mb-2">
+				<button
+					onclick={exportSystem}
+					class="flex-1 rounded border border-blue-600 px-2 py-1 text-xs font-semibold text-blue-600 transition-colors hover:bg-blue-50"
+				>
+					Export System
+				</button>
+				<button
+					onclick={() => fileInput.click()}
+					class="flex-1 rounded border border-green-600 px-2 py-1 text-xs font-semibold text-green-600 transition-colors hover:bg-green-50"
+				>
+					Import System
+				</button>
+				<input type="file" bind:this={fileInput} accept=".json" onchange={importSystem} class="hidden" />
+			</div>
+			
+			<h3 class="text-sm font-semibold text-gray-700 mb-2 mt-4">Pre-built Gallery</h3>
+			<div class="flex gap-2">
+				<button
+					onclick={() => loadTemplate('parity')}
+					class="flex-1 rounded bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-200"
+				>
+					Even Parity
+				</button>
+				<button
+					onclick={() => loadTemplate('fibonacci')}
+					class="flex-1 rounded bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-200"
+				>
+					Fibonacci
+				</button>
 			</div>
 		</div>
 

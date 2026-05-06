@@ -19,6 +19,13 @@ async def websocket_simulate(websocket: WebSocket):
             message = json.loads(data)
 
             # 2. Check message type
+            if message.get('type') == 'reset':
+                await websocket.send_json({
+                    "type": "reset_ack",
+                    "status": "Engine synchronized and reset."
+                })
+                continue
+
             if message.get('type') == 'judge':
                 string_val = message['string']
                 time_limit = message['timeLimit']

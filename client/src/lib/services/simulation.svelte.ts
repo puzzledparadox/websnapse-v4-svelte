@@ -35,6 +35,12 @@ export class SimulationService {
             this.socket.send(JSON.stringify(payload));
         }
     }
+
+    reset() {
+        if (this.socket && this.isConnected) {
+            this.socket.send(JSON.stringify({ type: 'reset' }));
+        }
+    }
 }
 
 export const simulation = new SimulationService();
