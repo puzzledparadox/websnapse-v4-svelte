@@ -1,12 +1,17 @@
 <script lang="ts">
-	import { SvelteFlow, Background, Controls } from '@xyflow/svelte';
+	import { SvelteFlow, Background, Controls, MarkerType } from '@xyflow/svelte';
 	import NeuronNode from '$lib/components/NeuronNode.svelte';
+	import SynapseEdge from '$lib/components/SynapseEdge.svelte';
 	import { simulation } from '$lib/services/simulation.svelte';
 	import { onMount } from 'svelte';
 	import '@xyflow/svelte/dist/style.css';
 
 	const nodeTypes = {
 		neuron: NeuronNode
+	};
+
+	const edgeTypes = {
+		synapse: SynapseEdge
 	};
 
 	// Svelte 5 Runes for reactive state
@@ -54,15 +59,25 @@
 			id: 'e1-2',
 			source: 'n1',
 			target: 'n2',
-			animated: true,
-			style: 'stroke: #a855f7; stroke-width: 2px;'
+			type: 'synapse',
+			style: 'stroke: #a855f7; stroke-width: 2px;',
+			data: { isFiring: true },
+			markerEnd: {
+				type: MarkerType.ArrowClosed,
+				color: '#a855f7'
+			}
 		},
 		{
 			id: 'e1-3',
 			source: 'n1',
 			target: 'n3',
-			animated: true,
-			style: 'stroke: #a855f7; stroke-width: 2px;'
+			type: 'synapse',
+			style: 'stroke: #a855f7; stroke-width: 2px;',
+			data: { isFiring: false },
+			markerEnd: {
+				type: MarkerType.ArrowClosed,
+				color: '#a855f7'
+			}
 		}
 	]);
 
@@ -259,7 +274,7 @@
 
 	<!-- Visualization Canvas (WebSnapse Reloaded) -->
 	<section class="relative flex-1">
-		<SvelteFlow {nodes} {edges} {nodeTypes}>
+		<SvelteFlow {nodes} {edges} {nodeTypes} {edgeTypes}>
 			<Background />
 			<Controls />
 		</SvelteFlow>
