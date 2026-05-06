@@ -4,6 +4,8 @@ export class SimulationService {
     isConnected = $state(false);
     // Rune for storing current possibilities from the engine
     possibilities = $state([]);
+    // Rune for storing string judging results
+    judgeResults = $state<Record<string, string>>({});
 
     connect() {
         this.socket = new WebSocket('ws://localhost:8000/ws/simulate');
@@ -15,8 +17,12 @@ export class SimulationService {
 
         this.socket.onmessage = (event) => {
             const data = JSON.parse(event.data);
-            // Update reactive state with new possibilities
-            this.possibilities = data.possibilities;
+            if (data.type === 'judge_result') {
+                this.judgeResults[data.string] = data.status;
+            } else {
+                // Update reactive state with new possibilities
+                this.possibilities = data.possibilities;
+            }
         };
 
         this.socket.onclose = () => {

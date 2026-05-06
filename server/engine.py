@@ -21,8 +21,9 @@ def get_next_configuration(c_k, st_k_plus_1, iv_k, m_pi, stv_k):
     # Spikes are only added/consumed if the neuron is open
     effective_gain = st_k_plus_1 * net_gain
 
-    # 3. Calculate the next configuration
-    c_next = c_k + effective_gain
+    # 3. Calculate the next configuration, applying a non-negativity constraint
+    # to mathematically ensure a neuron's spikes cannot drop below 0
+    c_next = np.maximum(0, c_k + effective_gain)
 
     return c_next
 
@@ -58,7 +59,7 @@ def update_delay_status(dv, dsv, rule_delay_values):
 
     return new_dsv
 
-def get_configs_iterative(initial_config, time_limit):
+def get_configs_iterative(initial_config, time_limit, string_val, rules_metadata, m_pi, rule_delays):
     """
     Iterative configuration search from WebSnapse 4 Everyone.
     Avoids Python's recursion limit for large inputs like n=1000.
@@ -68,11 +69,19 @@ def get_configs_iterative(initial_config, time_limit):
 
     while stack:
         t, current_sys = stack.pop()
-        reachable_configs.append(current_sys)
+        reachable_configs.append((t, current_sys))
 
         if t < time_limit:
-            # In a real run, we'd calculate ALL possible next configurations here to handle non-determinism.
-            for next_possibility in get_all_next_nondet(current_sys):
+            # Determine stv_k based on string_val
+            bit = int(string_val[t]) if t < len(string_val) else 0
+            stv_k = np.array([bit, 0, 0])
+            
+            # Ensure st_next is available
+            if 'st_next' not in current_sys:
+                current_sys['st_next'] = np.array([1, 1, 1])
+                
+            for next_possibility in get_all_next_nondet(current_sys, rules_metadata, m_pi, stv_k, rule_delays):
+                next_possibility['st_next'] = current_sys['st_next']
                 stack.append((t + 1, next_possibility))
 
     return reachable_configs
