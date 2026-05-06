@@ -8,15 +8,27 @@
 
 	let isInput = $derived(data.neuronType === 'input' || data.neuronType === 'Input');
 	let isOutput = $derived(data.neuronType === 'output' || data.neuronType === 'Output');
+	let isClosed = $derived(data.delay > 0);
+	let isActive = $derived(!!data.isFiring);
 
 	let borderColorClass = $derived(
-		data.delay > 0
-			? 'border-red-500 ring-2 ring-red-200'
-			: isInput
-				? 'border-emerald-500'
-				: isOutput
-					? 'border-amber-500'
-					: 'border-purple-500'
+		isActive
+			? 'border-purple-500 ring-2 ring-purple-300/60'
+			: isClosed
+				? 'border-red-500 ring-2 ring-red-200'
+				: isInput
+					? 'border-emerald-500'
+					: isOutput
+						? 'border-amber-500'
+						: 'border-slate-300'
+	);
+
+	let glowStyle = $derived(
+		isActive
+			? 'box-shadow: 0 0 16px 4px rgba(168, 85, 247, 0.4);'
+			: isClosed
+				? 'box-shadow: 0 0 12px 2px rgba(239, 68, 68, 0.25);'
+				: ''
 	);
 
 	let spikeColorClass = $derived(
@@ -34,11 +46,39 @@
 				? 'bg-amber-100 text-amber-800 border-amber-200'
 				: ''
 	);
+
+	function formatSpikeTrain(train: string | number | undefined): string {
+		if (train === undefined || train === null) return '';
+		const str = String(train);
+		if (!str) return '';
+		
+		let result: string[] = [];
+		let currentChar = str[0];
+		let count = 1;
+		
+		for (let i = 1; i <= str.length; i++) {
+			if (i < str.length && str[i] === currentChar) {
+				count++;
+			} else {
+				if (count > 1) {
+					result.push(`${currentChar}^{${count}}`);
+				} else {
+					result.push(`${currentChar}`);
+				}
+				if (i < str.length) {
+					currentChar = str[i];
+					count = 1;
+				}
+			}
+		}
+		return result.join('\\ ');
+	}
 </script>
 
 <!-- Neuron visual container -->
 <div
-	class="relative min-w-[120px] rounded-xl border-2 bg-white px-4 py-2 shadow-md transition-all {borderColorClass}"
+	class="relative min-w-[120px] rounded-xl border-2 bg-white px-4 py-2 shadow-md transition-all duration-300 {borderColorClass}"
+	style={glowStyle}
 >
 	{#if isInput || isOutput}
 		<div
@@ -49,22 +89,34 @@
 	{/if}
 
 	<!-- Top: Neuron ID and Spike Count -->
-	<div class="mb-2 flex items-center justify-between border-b pb-1 pt-1">
+	<div class="mb-2 flex items-center justify-between gap-2 border-b pb-1 pt-1">
 		<span class="font-mono text-xs text-gray-400">{data.id}</span>
-		<span class="text-lg font-bold {spikeColorClass}">{data.spikes}</span>
+		<span class="text-lg font-bold {spikeColorClass}">
+			{#if isInput || isOutput}
+				<Katex>{formatSpikeTrain(data.spikes)}</Katex>
+			{:else}
+				{data.spikes}
+			{/if}
+		</span>
 	</div>
 
 	<!-- Center: Spiking Rules -->
-	<div class="flex flex-col gap-1 py-2 text-center text-sm">
-		{#each data.rules || [] as rule}
-			<Katex>{rule}</Katex>
-		{/each}
-	</div>
+	{#if !isInput && !isOutput}
+		<div class="flex flex-col gap-1 py-2 text-center text-sm">
+			{#each data.rules || [] as rule}
+				<Katex>{rule}</Katex>
+			{/each}
+		</div>
+	{/if}
 
-	<!-- Bottom: Delay Status (Algorithm 4) -->
-	{#if data.delay > 0}
-		<div class="mt-1 text-center text-[10px] font-bold uppercase tracking-tighter text-red-600">
-			Closed ({data.delay})
+	<!-- Bottom: Delay counter (always shown for regular nodes) -->
+	{#if !isInput && !isOutput}
+		<div class="mt-1 text-center text-[10px] font-bold uppercase tracking-tighter {isClosed ? 'text-red-600' : 'text-slate-400'}">
+			{#if isClosed}
+				Closed ({data.delay})
+			{:else}
+				Open
+			{/if}
 		</div>
 	{/if}
 
