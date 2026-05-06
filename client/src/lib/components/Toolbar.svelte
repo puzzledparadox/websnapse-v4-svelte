@@ -36,9 +36,9 @@
 
 <svelte:window onkeydown={handleKeydown} />
 
-<!-- Engineering Sidebar Docked to the left/right inside the canvas area -->
-<div class="absolute left-4 top-4 z-50 flex flex-col gap-2 rounded-lg border border-gray-300 bg-gray-50 p-2 shadow-md">
-	<div class="mb-2 border-b border-gray-300 pb-2 text-center text-xs font-bold text-gray-500">
+<!-- Horizontal toolbar docked at top center of the canvas area -->
+<div class="absolute left-1/2 top-4 z-50 flex -translate-x-1/2 items-center gap-2 rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 shadow-md">
+	<div class="mr-1 border-r border-gray-300 pr-2 text-xs font-bold text-gray-500">
 		TOOLS
 	</div>
 
@@ -53,14 +53,14 @@
 		>
 			<tool.icon size={20} />
 			
-			<!-- Tooltip -->
-			<div class="pointer-events-none absolute left-full ml-2 whitespace-nowrap rounded bg-gray-800 px-2 py-1 text-xs font-medium text-white opacity-0 transition-opacity group-hover:opacity-100">
+			<!-- Tooltip (below) -->
+			<div class="pointer-events-none absolute top-full mt-2 whitespace-nowrap rounded bg-gray-800 px-2 py-1 text-xs font-medium text-white opacity-0 transition-opacity group-hover:opacity-100">
 				{tool.label}
 			</div>
 		</button>
 	{/each}
 
-	<div class="my-1 border-t border-gray-300"></div>
+	<div class="mx-1 h-6 border-l border-gray-300"></div>
 
 	<button
 		class="group relative flex h-10 w-10 items-center justify-center rounded-md border border-transparent bg-transparent text-red-600 transition-colors hover:bg-red-100 hover:border-red-300"
@@ -69,7 +69,7 @@
 	>
 		<ShieldAlert size={20} />
 		
-		<div class="pointer-events-none absolute left-full ml-2 whitespace-nowrap rounded bg-red-800 px-2 py-1 text-xs font-medium text-white opacity-0 transition-opacity group-hover:opacity-100">
+		<div class="pointer-events-none absolute top-full mt-2 whitespace-nowrap rounded bg-red-800 px-2 py-1 text-xs font-medium text-white opacity-0 transition-opacity group-hover:opacity-100">
 			Clear Canvas
 		</div>
 	</button>

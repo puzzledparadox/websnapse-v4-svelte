@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { SvelteFlow, Background, Controls, MarkerType, useSvelteFlow, type Node, type Edge } from '@xyflow/svelte';
+	import CustomMiniMap from '$lib/components/CustomMiniMap.svelte';
 	import { PanOnScrollMode } from '@xyflow/system';
 	import NeuronNode from '$lib/components/NeuronNode.svelte';
 	import SynapseEdge from '$lib/components/SynapseEdge.svelte';
@@ -8,7 +9,7 @@
 	import ContextMenu from '$lib/components/ContextMenu.svelte';
 	import { simulation } from '$lib/services/simulation.svelte';
 	import { onMount } from 'svelte';
-	import { ShieldAlert, LayoutGrid, Maximize, Sparkles, Radiation, Download, Trash2, Layers, Focus, Copy, Hash } from 'lucide-svelte';
+	import { ShieldAlert, LayoutGrid, Maximize, Sparkles, Radiation, Download, Trash2, Layers, Focus, Copy, Hash, PanelLeftClose, PanelLeftOpen } from 'lucide-svelte';
 	import dagre from 'dagre';
 	import '@xyflow/svelte/dist/style.css';
 
@@ -30,6 +31,7 @@
 	let editTargetNode = $state<Node | null>(null);
 
 	let showClearModal = $state(false);
+	let sidebarOpen = $state(true);
 
 	let contextMenuState = $state({
 		show: false,
@@ -543,9 +545,31 @@
 </script>
 
 <main class="flex h-screen w-screen overflow-hidden">
+	<!-- Sidebar toggle button (always visible) -->
+	{#if !sidebarOpen}
+		<button
+			onclick={() => sidebarOpen = true}
+			class="fixed left-0 top-1/2 z-20 -translate-y-1/2 rounded-r-lg border border-l-0 border-gray-200 bg-white px-1.5 py-3 shadow-md transition-all hover:bg-purple-50 hover:shadow-lg"
+			title="Open sidebar"
+		>
+			<PanelLeftOpen size={18} class="text-purple-600" />
+		</button>
+	{/if}
+
 	<!-- String Computation Sidebar (WebSnapse 4 Everyone) -->
-	<aside class="z-10 flex w-96 flex-col gap-4 overflow-y-auto border-r bg-white p-4 shadow-lg">
+	<aside
+		class="z-10 flex w-96 flex-col gap-4 overflow-y-auto border-r bg-white p-4 shadow-lg transition-all duration-300 ease-in-out"
+		class:sidebar-open={sidebarOpen}
+		class:sidebar-closed={!sidebarOpen}
+	>
 		<div class="flex items-center justify-between border-b pb-2">
+			<button
+				onclick={() => sidebarOpen = false}
+				class="rounded p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-purple-600"
+				title="Hide sidebar"
+			>
+				<PanelLeftClose size={18} />
+			</button>
 			<h2 class="text-xl font-bold text-gray-800">String Judge</h2>
 			<div class="flex items-center gap-2">
 				<div
@@ -758,6 +782,15 @@
 			bind:edges={edges}
 			{nodeTypes}
 			{edgeTypes}
+			defaultEdgeOptions={{
+				type: 'synapse',
+				style: 'stroke: #a855f7; stroke-width: 2px;',
+				data: { isFiring: false, weight: 1 },
+				markerEnd: {
+					type: MarkerType.ArrowClosed,
+					color: '#a855f7'
+				}
+			}}
 			nodesDraggable={activeTool === 'select' || activeTool === 'node'}
 			nodesConnectable={activeTool === 'edge'}
 			panOnDrag={activeTool === 'hand'}
@@ -773,6 +806,20 @@
 		>
 			<Background />
 			<Controls />
+			<CustomMiniMap {nodes} {edges} />
 		</SvelteFlow>
 	</section>
 </main>
+
+<style>
+	.sidebar-open {
+		margin-left: 0;
+		opacity: 1;
+	}
+
+	.sidebar-closed {
+		margin-left: -24rem; /* -w-96 */
+		opacity: 0;
+		pointer-events: none;
+	}
+</style>
