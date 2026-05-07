@@ -14,7 +14,7 @@
 		data
 	} = $props();
 
-	let isFiring = $derived(!!data?.isFiring);
+	let isFiring = $derived(data?.previewFiring !== undefined ? !!data?.previewFiring : !!data?.isFiring);
 
 	let pathParams = $derived(
 		getBezierPath({

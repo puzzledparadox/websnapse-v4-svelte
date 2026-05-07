@@ -5,10 +5,11 @@
 	import NeuronNode from '$lib/components/NeuronNode.svelte';
 	import SynapseEdge from '$lib/components/SynapseEdge.svelte';
 	import Toolbar from '$lib/components/Toolbar.svelte';
+	import SimulationBar from '$lib/components/SimulationBar.svelte';
 	import NodeCreationModal from '$lib/components/NodeCreationModal.svelte';
 	import ContextMenu from '$lib/components/ContextMenu.svelte';
 	import { simulation } from '$lib/services/simulation.svelte';
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { ShieldAlert, LayoutGrid, Maximize, Sparkles, Radiation, Download, Trash2, Layers, Focus, Copy, Hash, PanelLeftClose, PanelLeftOpen } from 'lucide-svelte';
 	import dagre from 'dagre';
 	import '@xyflow/svelte/dist/style.css';
@@ -41,87 +42,83 @@
 	});
 
 	let tick = $state(0);
+	let simSpeed = $state(1.5);
+	let simMode = $state<'pseudorandom' | 'guided'>('pseudorandom');
+	let autoPlayInterval: ReturnType<typeof setInterval> | null = null;
+	let isHalted = $state(false);
+
+	// Snapshot of initial state for restart
+	let initialNodes: typeof nodes | null = null;
+	let initialEdges: typeof edges | null = null;
+	let initialSystemState: typeof systemState | null = null;
+
+	// History stack for stepping back
+	let simHistory = $state<any[]>([]);
+
 	let systemState = $state({
-		name: 'Fibonacci Generator',
-		m_pi: [
-			[-1, 1, 1],
-			[-2, 0, 0]
-		],
-		stv_k: [0, 0, 0],
-		rule_delays: [1, 0],
-		div: [0, 0],
-		dsv: [0, 0],
-		st_next: [1, 1, 1]
+		name: 'Binary Adder',
+		div: [] as number[],  // delayed indicator vector (per-rule)
+		dsv: [] as number[],  // delay status vector (per-rule)
 	});
 
 	let nodes = $state([
 		{
 			id: 'n1',
 			type: 'neuron',
-			position: { x: 150, y: 250 },
-			data: {
-				id: 'σ₁',
-				neuronType: 'input',
-				spikes: 2,
-				delay: 0,
-				rules: ['a^2/a \\to a; 1', 'a \\to \\lambda'] // Mocked LaTeX
-			}
+			position: { x: 150, y: 150 },
+			data: { id: 'in_0', neuronType: 'input', spikes: '111', delay: 0, rules: [] }
 		},
 		{
 			id: 'n2',
 			type: 'neuron',
-			position: { x: 500, y: 150 },
-			data: {
-				id: 'σ₂',
-				neuronType: 'output',
-				spikes: 1,
-				delay: 0,
-				rules: []
-			}
+			position: { x: 150, y: 350 },
+			data: { id: 'in_1', neuronType: 'input', spikes: '1101', delay: 0, rules: [] }
 		},
 		{
 			id: 'n3',
 			type: 'neuron',
-			position: { x: 500, y: 350 },
+			position: { x: 450, y: 250 },
 			data: {
-				id: 'σ₃',
-				neuronType: 'output',
-				spikes: 3,
+				id: 'add',
+				neuronType: 'regular',
+				spikes: 0,
 				delay: 0,
-				rules: []
+				rules: ['a \\to a; 0', 'a^2/a \\to \\lambda', 'a^3/a^2 \\to a; 0']
 			}
+		},
+		{
+			id: 'n4',
+			type: 'neuron',
+			position: { x: 750, y: 250 },
+			data: { id: 'out', neuronType: 'output', spikes: '', delay: 0, rules: [] }
 		}
 	]);
 
 	let edges = $state([
 		{
-			id: 'e1-2',
-			source: 'n1',
-			target: 'n2',
-			type: 'synapse',
-			style: 'stroke: #a855f7; stroke-width: 2px;',
-			data: { isFiring: true },
-			markerEnd: {
-				type: MarkerType.ArrowClosed,
-				color: '#a855f7'
-			}
+			id: 'e1', source: 'n1', target: 'n3', type: 'synapse',
+			style: 'stroke: #a855f7; stroke-width: 2px;', data: { isFiring: false, weight: 1 },
+			markerEnd: { type: MarkerType.ArrowClosed, color: '#a855f7' }
 		},
 		{
-			id: 'e1-3',
-			source: 'n1',
-			target: 'n3',
-			type: 'synapse',
-			style: 'stroke: #a855f7; stroke-width: 2px;',
-			data: { isFiring: false },
-			markerEnd: {
-				type: MarkerType.ArrowClosed,
-				color: '#a855f7'
-			}
+			id: 'e2', source: 'n2', target: 'n3', type: 'synapse',
+			style: 'stroke: #a855f7; stroke-width: 2px;', data: { isFiring: false, weight: 1 },
+			markerEnd: { type: MarkerType.ArrowClosed, color: '#a855f7' }
+		},
+		{
+			id: 'e3', source: 'n3', target: 'n4', type: 'synapse',
+			style: 'stroke: #a855f7; stroke-width: 2px;', data: { isFiring: false, weight: 1 },
+			markerEnd: { type: MarkerType.ArrowClosed, color: '#a855f7' }
 		}
 	]);
 
 	onMount(() => {
 		simulation.connect();
+
+		// Snapshot initial state for restart
+		initialNodes = JSON.parse(JSON.stringify(nodes));
+		initialEdges = JSON.parse(JSON.stringify(edges));
+		initialSystemState = JSON.parse(JSON.stringify(systemState));
 
 		// Listen for right-clicks on edge labels (portaled outside SVG)
 		function handleEdgeLabelContext(e: Event) {
@@ -132,36 +129,181 @@
 			}
 		}
 		window.addEventListener('edge-label-contextmenu', handleEdgeLabelContext);
-		return () => window.removeEventListener('edge-label-contextmenu', handleEdgeLabelContext);
+		return () => {
+			window.removeEventListener('edge-label-contextmenu', handleEdgeLabelContext);
+			if (autoPlayInterval) clearInterval(autoPlayInterval);
+			if (previewInterval) clearInterval(previewInterval);
+		};
 	});
 
 	function handleStep() {
+		if (!simulation.isConnected || isHalted) return;
+
+		// Send the full graph definition so the backend can dynamically
+		// parse rules, build M_Pi, and compute stv_k for this tick.
 		simulation.sendState({
+			type: 'step',
 			tick: tick,
-			state: {
-				c_k: nodes.map((n) => n.data.spikes),
-				div: systemState.div,
-				dsv: systemState.dsv,
-				st_next: systemState.st_next
-			},
-			m_pi: systemState.m_pi,
-			stv_k: systemState.stv_k,
-			rule_delays: systemState.rule_delays,
-			rules: []
+			nodes: nodes.map(n => ({
+				id: n.id,
+				neuronType: n.data.neuronType,
+				spikes: n.data.spikes,
+				rules: n.data.rules || []
+			})),
+			edges: edges.map(e => ({
+				source: e.source,
+				target: e.target,
+				weight: e.data?.weight ?? 1
+			})),
+			div: systemState.div,
+			dsv: systemState.dsv
 		});
 	}
 
-	function applyBranch(pos) {
-		for (let i = 0; i < nodes.length; i++) {
-			if (pos.c_k[i] !== undefined) {
-				nodes[i].data.spikes = pos.c_k[i];
-			}
+	function handleSimPlayPause() {
+		if (autoPlayInterval) {
+			// Pause
+			clearInterval(autoPlayInterval);
+			autoPlayInterval = null;
+		} else {
+			// Play — auto-step at the configured speed
+			const intervalMs = Math.max(100, 1000 / simSpeed);
+			autoPlayInterval = setInterval(() => {
+				handleStep();
+			}, intervalMs);
 		}
+	}
+
+	function handleSimSpeedChange(newSpeed: number) {
+		simSpeed = newSpeed;
+		// If currently auto-playing, restart the interval at the new speed
+		if (autoPlayInterval) {
+			clearInterval(autoPlayInterval);
+			const intervalMs = Math.max(100, 1000 / simSpeed);
+			autoPlayInterval = setInterval(() => {
+				handleStep();
+			}, intervalMs);
+		}
+	}
+
+	function handleSimModeChange(newMode: 'pseudorandom' | 'guided') {
+		simMode = newMode;
+	}
+
+	function handleSimRestart() {
+		// Stop auto-play
+		if (autoPlayInterval) {
+			clearInterval(autoPlayInterval);
+			autoPlayInterval = null;
+		}
+
+		// Restore state to the very first recorded history frame
+		if (simHistory.length > 0) {
+			const firstState = simHistory[0];
+			nodes = firstState.nodes;
+			edges = firstState.edges;
+			systemState = firstState.systemState;
+			tick = firstState.tick;
+			isHalted = false;
+			simHistory = [];
+		} else if (initialNodes && initialEdges && initialSystemState) {
+			// Fallback to loaded state if no steps taken yet
+			nodes = JSON.parse(JSON.stringify(initialNodes));
+			edges = JSON.parse(JSON.stringify(initialEdges));
+			systemState = JSON.parse(JSON.stringify(initialSystemState));
+			tick = 0;
+			isHalted = false;
+		}
+
+		simulation.possibilities = [];
+		simulation.reset();
+	}
+
+	function handleStepBack() {
+		if (simHistory.length > 0) {
+			const prevState = simHistory.pop();
+			nodes = prevState.nodes;
+			edges = prevState.edges;
+			systemState = prevState.systemState;
+			tick = prevState.tick;
+			isHalted = false;
+			simulation.possibilities = [];
+		}
+	}
+
+	function applyBranch(pos) {
+		// Save to history before modifying state
+		simHistory.push({
+			nodes: JSON.parse(JSON.stringify(nodes)),
+			edges: JSON.parse(JSON.stringify(edges)),
+			systemState: JSON.parse(JSON.stringify(systemState)),
+			tick: tick
+		});
+
+		// Track which neurons fired for edge animation
+		const firedNeurons = new Set<string>();
+
+		// Update nodes immutably to trigger Svelte Flow reactivity
+		nodes = nodes.map((n, i) => {
+			const ntype = n.data.neuronType;
+			let newSpikes = n.data.spikes;
+
+			if (ntype === 'input' || ntype === 'Input') {
+				// Trim first bit from the spike train (consumed this tick)
+				const train = String(n.data.spikes);
+				if (train.length > 0 && train[0] === '1') {
+					firedNeurons.add(n.id);
+				}
+				newSpikes = train.substring(1);
+
+			} else if (ntype === 'output' || ntype === 'Output') {
+				// Build the output spike train: append 0 or 1 based on received spikes
+				const currentTrain = typeof n.data.spikes === 'string' ? n.data.spikes : '';
+				const prevAccumulated = currentTrain.split('').filter(c => c === '1').length;
+				const newAccumulated = pos.c_k[i] ?? prevAccumulated;
+				const delta = newAccumulated - prevAccumulated;
+				newSpikes = currentTrain + (delta > 0 ? '1' : '0');
+
+			} else {
+				// Regular neuron — update spike count
+				if (pos.c_k[i] !== undefined) {
+					newSpikes = pos.c_k[i];
+				}
+				// Neuron fired if it consumed spikes (rule_contribution < 0)
+				if (pos.rule_contribution && pos.rule_contribution[i] < 0) {
+					firedNeurons.add(n.id);
+				}
+			}
+
+			return {
+				...n,
+				data: {
+					...n.data,
+					spikes: newSpikes,
+					isFiring: firedNeurons.has(n.id)
+				}
+			};
+		});
+
+		// Activate firing animation on edges whose source neuron fired
+		edges = edges.map(e => ({
+			...e,
+			data: { ...e.data, isFiring: firedNeurons.has(e.source) }
+		}));
+
 		systemState.div = pos.div;
 		systemState.dsv = pos.dsv;
 		tick++;
 
-		// Clear possibilities after selection to represent moving to the next step
+		if (pos.is_halted) {
+			isHalted = true;
+			if (autoPlayInterval) {
+				clearInterval(autoPlayInterval);
+				autoPlayInterval = null;
+			}
+		}
+
+		// Clear possibilities after selection
 		simulation.possibilities = [];
 	}
 
@@ -343,12 +485,10 @@
 		nodes = [];
 		edges = [];
 		tick = 0;
-		systemState.m_pi = [];
-		systemState.stv_k = [];
-		systemState.rule_delays = [];
+		isHalted = false;
+		simHistory = [];
 		systemState.div = [];
 		systemState.dsv = [];
-		systemState.st_next = [];
 		simulation.possibilities = [];
 		simulation.reset();
 	}
@@ -386,6 +526,7 @@
 				nodes = [];
 				edges = [];
 				tick = 0;
+				isHalted = false;
 				simulation.possibilities = [];
 
 				// Rehydrate
@@ -410,6 +551,7 @@
 		nodes = [];
 		edges = [];
 		tick = 0;
+		simHistory = [];
 		simulation.possibilities = [];
 
 		setTimeout(() => {
@@ -425,12 +567,8 @@
 				edges = [];
 				systemState = {
 					name: 'Even Parity Checker',
-					m_pi: [[-2]],
-					stv_k: [0],
-					rule_delays: [0],
-					div: [0],
-					dsv: [0],
-					st_next: [1]
+					div: [],
+					dsv: []
 				};
 			} else if (type === 'fibonacci') {
 				nodes = [
@@ -481,15 +619,8 @@
 				];
 				systemState = {
 					name: 'Fibonacci Generator',
-					m_pi: [
-						[-1, 1, 1],
-						[-2, 0, 0]
-					],
-					stv_k: [0, 0, 0],
-					rule_delays: [1, 0],
-					div: [0, 0],
-					dsv: [0, 0],
-					st_next: [1, 1, 1]
+					div: [],
+					dsv: []
 				};
 			}
 			simulation.reset();
@@ -539,6 +670,84 @@
 		for (let str of testStrings) {
 			if (simulation.judgeResults[str.value]) {
 				str.status = simulation.judgeResults[str.value];
+			}
+		}
+	});
+
+	// Auto-apply branches if deterministic (1 option) or in pseudorandom mode
+	$effect(() => {
+		if (simulation.possibilities && simulation.possibilities.length > 0 && !isHalted) {
+			if (simMode === 'pseudorandom' || simulation.possibilities.length === 1) {
+				const randomIndex = Math.floor(Math.random() * simulation.possibilities.length);
+				// Use a small timeout to avoid $effect infinite loops and give UI a tick to render
+				setTimeout(() => {
+					if (simulation.possibilities && simulation.possibilities.length > 0) {
+						applyBranch(simulation.possibilities[randomIndex]);
+					}
+				}, 50);
+			}
+		}
+	});
+
+	let previewInterval: ReturnType<typeof setInterval> | null = null;
+	let previewIndex = $state(0);
+
+	$effect(() => {
+		if (simMode === 'guided' && simulation.possibilities && simulation.possibilities.length > 1 && !isHalted) {
+			if (!previewInterval) {
+				previewIndex = 0;
+				previewInterval = setInterval(() => {
+					previewIndex = (previewIndex + 1) % simulation.possibilities.length;
+				}, 1500); // 1.5s interval
+			}
+			
+			const pos = simulation.possibilities[previewIndex];
+			const previewFiredNeurons = new Set<string>();
+			
+			// Untrack nodes and edges so modifying them doesn't trigger this effect again
+			const currentNodes = untrack(() => nodes);
+			const currentEdges = untrack(() => edges);
+
+			currentNodes.forEach((n, i) => {
+				const ntype = n.data.neuronType;
+				if (ntype === 'input' || ntype === 'Input') {
+					const train = String(n.data.spikes);
+					if (train.length > 0 && train[0] === '1') {
+						previewFiredNeurons.add(n.id);
+					}
+				} else if (ntype !== 'output' && ntype !== 'Output') {
+					if (pos.rule_contribution && pos.rule_contribution[i] < 0) {
+						previewFiredNeurons.add(n.id);
+					}
+				}
+			});
+
+			nodes = currentNodes.map(n => ({
+				...n,
+				data: { ...n.data, previewFiring: previewFiredNeurons.has(n.id) }
+			}));
+
+			edges = currentEdges.map(e => ({
+				...e,
+				data: { ...e.data, previewFiring: previewFiredNeurons.has(e.source) }
+			}));
+
+		} else {
+			if (previewInterval) {
+				clearInterval(previewInterval);
+				previewInterval = null;
+				
+				const currentNodes = untrack(() => nodes);
+				const currentEdges = untrack(() => edges);
+				
+				nodes = currentNodes.map(n => ({
+					...n,
+					data: { ...n.data, previewFiring: undefined }
+				}));
+				edges = currentEdges.map(e => ({
+					...e,
+					data: { ...e.data, previewFiring: undefined }
+				}));
 			}
 		}
 	});
@@ -700,9 +909,9 @@
 			<button
 				onclick={handleStep}
 				class="w-full rounded bg-gray-800 p-2 text-sm font-semibold text-white hover:bg-gray-900 disabled:opacity-50"
-				disabled={!simulation.isConnected}
+				disabled={!simulation.isConnected || isHalted}
 			>
-				Step Simulation
+				{isHalted ? 'System Halted' : 'Step Simulation'}
 			</button>
 			{#if simulation.possibilities && simulation.possibilities.length > 0}
 				<div class="mt-4 flex max-h-40 flex-col gap-2 overflow-y-auto">
@@ -731,6 +940,16 @@
 	<!-- Visualization Canvas (WebSnapse Reloaded) -->
 	<section class="relative flex-1">
 		<Toolbar bind:activeTool={activeTool} onClear={() => showClearModal = true} />
+		<SimulationBar
+			isConnected={simulation.isConnected}
+			{isHalted}
+			onStep={handleStep}
+			onStepBack={handleStepBack}
+			onPlayPause={handleSimPlayPause}
+			onRestart={handleSimRestart}
+			onModeChange={handleSimModeChange}
+			onSpeedChange={handleSimSpeedChange}
+		/>
 		<NodeCreationModal
 			bind:show={showNodeModal}
 			defaultId={defaultNodeId}

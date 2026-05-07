@@ -9,7 +9,7 @@
 	let isInput = $derived(data.neuronType === 'input' || data.neuronType === 'Input');
 	let isOutput = $derived(data.neuronType === 'output' || data.neuronType === 'Output');
 	let isClosed = $derived(data.delay > 0);
-	let isActive = $derived(!!data.isFiring);
+	let isActive = $derived(data.previewFiring !== undefined ? !!data.previewFiring : !!data.isFiring);
 
 	let borderColorClass = $derived(
 		isActive
@@ -93,7 +93,9 @@
 		<span class="font-mono text-xs text-gray-400">{data.id}</span>
 		<span class="text-lg font-bold {spikeColorClass}">
 			{#if isInput || isOutput}
-				<Katex>{formatSpikeTrain(data.spikes)}</Katex>
+				{#key data.spikes}
+					<Katex>{formatSpikeTrain(data.spikes)}</Katex>
+				{/key}
 			{:else}
 				{data.spikes}
 			{/if}
@@ -104,7 +106,9 @@
 	{#if !isInput && !isOutput}
 		<div class="flex flex-col gap-1 py-2 text-center text-sm">
 			{#each data.rules || [] as rule}
-				<Katex>{rule}</Katex>
+				{#key rule}
+					<Katex>{rule}</Katex>
+				{/key}
 			{/each}
 		</div>
 	{/if}

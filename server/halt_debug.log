@@ -1,0 +1,661 @@
+--- TICK CHECK ---
+stv_k: [0 0 2 0]
+is_stv_empty: False
+current_c_k: [0 0 0 0]
+all_halted: False
+
+--- TICK CHECK ---
+stv_k: [0 0 2 0]
+is_stv_empty: False
+current_c_k: [0 0 2 0]
+all_halted: False
+
+--- TICK CHECK ---
+stv_k: [0 0 1 0]
+is_stv_empty: False
+current_c_k: [0 0 3 0]
+all_halted: False
+
+--- TICK CHECK ---
+stv_k: [0 0 1 0]
+is_stv_empty: False
+current_c_k: [0 0 2 1]
+all_halted: False
+
+--- TICK CHECK ---
+stv_k: [0 0 0 0]
+is_stv_empty: True
+current_c_k: [0 0 2 1]
+nxt_c_k: [0 0 1 1]
+all_halted: False
+
+--- TICK CHECK ---
+stv_k: [0 0 0 0]
+is_stv_empty: True
+current_c_k: [0 0 1 1]
+nxt_c_k: [0 0 0 2]
+all_halted: False
+
+--- TICK CHECK ---
+stv_k: [0 0 0 0]
+is_stv_empty: True
+current_c_k: [0 0 0 2]
+nxt_c_k: [0 0 0 2]
+all_halted: True
+
+--- TICK CHECK ---
+stv_k: [0 0 0 0]
+is_stv_empty: True
+current_c_k: [0 0 0 2]
+nxt_c_k: [0 0 0 2]
+all_halted: True
+
+--- TICK CHECK ---
+stv_k: [0 0 0 0]
+is_stv_empty: True
+current_c_k: [0 0 0 2]
+nxt_c_k: [0 0 0 2]
+all_halted: True
+
+--- TICK CHECK ---
+stv_k: [0 0 0 0]
+is_stv_empty: True
+current_c_k: [0 0 0 2]
+nxt_c_k: [0 0 0 2]
+all_halted: True
+
+--- TICK CHECK ---
+stv_k: [0 0 0 0]
+is_stv_empty: True
+current_c_k: [0 0 0 2]
+nxt_c_k: [0 0 0 2]
+all_halted: True
+
+--- TICK CHECK ---
+stv_k: [0 0 0 0]
+is_stv_empty: True
+current_c_k: [0 0 0 2]
+nxt_c_k: [0 0 0 2]
+all_halted: True
+
+--- TICK CHECK ---
+stv_k: [0 0 0 0]
+is_stv_empty: True
+current_c_k: [0 0 0 2]
+nxt_c_k: [0 0 0 2]
+all_halted: True
+
+--- TICK CHECK ---
+stv_k: [0 0 0 0]
+is_stv_empty: True
+current_c_k: [0 0 0 2]
+nxt_c_k: [0 0 0 2]
+all_halted: True
+
+--- TICK CHECK ---
+stv_k: [0 0 0 0]
+is_stv_empty: True
+current_c_k: [0 0 0 2]
+nxt_c_k: [0 0 0 2]
+all_halted: True
+
+--- TICK CHECK ---
+stv_k: [0 0 0 0]
+is_stv_empty: True
+current_c_k: [0 0 0 2]
+nxt_c_k: [0 0 0 2]
+all_halted: True
+
+--- TICK CHECK ---
+stv_k: [0 0 0 0]
+is_stv_empty: True
+current_c_k: [0 0 0 2]
+nxt_c_k: [0 0 0 2]
+all_halted: True
+
+--- TICK CHECK ---
+stv_k: [0 0 0 0]
+is_stv_empty: True
+current_c_k: [0 0 0 2]
+nxt_c_k: [0 0 0 2]
+all_halted: True
+
+--- TICK CHECK ---
+stv_k: [0 0 0 0]
+is_stv_empty: True
+current_c_k: [0 0 0 2]
+nxt_c_k: [0 0 0 2]
+all_halted: True
+
+--- TICK CHECK ---
+stv_k: [0 0 0 0]
+is_stv_empty: True
+current_c_k: [0 0 0 2]
+nxt_c_k: [0 0 0 2]
+all_halted: True
+
+--- TICK CHECK ---
+stv_k: [0 0 0 0]
+is_stv_empty: True
+current_c_k: [0 0 0 2]
+nxt_c_k: [0 0 0 2]
+all_halted: True
+
+--- TICK CHECK ---
+stv_k: [0 0 0 0]
+is_stv_empty: True
+current_c_k: [0 0 0 2]
+nxt_c_k: [0 0 0 2]
+all_halted: True
+
+--- TICK CHECK ---
+stv_k: [0 0 0 0]
+is_stv_empty: True
+current_c_k: [0 0 0 2]
+nxt_c_k: [0 0 0 2]
+all_halted: True
+
+--- TICK CHECK ---
+stv_k: [0 0 0 0]
+is_stv_empty: True
+current_c_k: [0 0 0 2]
+nxt_c_k: [0 0 0 2]
+all_halted: True
+
+--- TICK CHECK ---
+stv_k: [0 0 0 0]
+is_stv_empty: True
+current_c_k: [0 0 0 2]
+nxt_c_k: [0 0 0 2]
+all_halted: True
+
+--- TICK CHECK ---
+stv_k: [0 0 0 0]
+is_stv_empty: True
+current_c_k: [0 0 0 2]
+nxt_c_k: [0 0 0 2]
+all_halted: True
+
+--- TICK CHECK ---
+stv_k: [0 0 0 0]
+is_stv_empty: True
+current_c_k: [0 0 0 2]
+nxt_c_k: [0 0 0 2]
+all_halted: True
+
+--- TICK CHECK ---
+stv_k: [0 0 0 0]
+is_stv_empty: True
+current_c_k: [0 0 0 2]
+nxt_c_k: [0 0 0 2]
+all_halted: True
+
+--- TICK CHECK ---
+stv_k: [0 0 0 0]
+is_stv_empty: True
+current_c_k: [0 0 0 2]
+nxt_c_k: [0 0 0 2]
+all_halted: True
+
+--- TICK CHECK ---
+stv_k: [0 0 0 0]
+is_stv_empty: True
+current_c_k: [0 0 0 2]
+nxt_c_k: [0 0 0 2]
+all_halted: True
+
+--- TICK CHECK ---
+stv_k: [0 0 0 0]
+is_stv_empty: True
+current_c_k: [0 0 0 2]
+nxt_c_k: [0 0 0 2]
+all_halted: True
+
+--- TICK CHECK ---
+stv_k: [0 0 0 0]
+is_stv_empty: True
+current_c_k: [0 0 0 2]
+nxt_c_k: [0 0 0 2]
+all_halted: True
+
+--- TICK CHECK ---
+stv_k: [0 0 0 0]
+is_stv_empty: True
+current_c_k: [0 0 0 2]
+nxt_c_k: [0 0 0 2]
+all_halted: True
+
+--- TICK CHECK ---
+stv_k: [0 0 0 0]
+is_stv_empty: True
+current_c_k: [0 0 0 2]
+nxt_c_k: [0 0 0 2]
+all_halted: True
+
+--- TICK CHECK ---
+stv_k: [0 0 0 0]
+is_stv_empty: True
+current_c_k: [0 0 0 2]
+nxt_c_k: [0 0 0 2]
+all_halted: True
+
+--- TICK CHECK ---
+stv_k: [0 0 0 0]
+is_stv_empty: True
+current_c_k: [0 0 0 2]
+nxt_c_k: [0 0 0 2]
+all_halted: True
+
+--- TICK CHECK ---
+stv_k: [0 0 2 0]
+is_stv_empty: False
+current_c_k: [0 0 0 0]
+all_halted: False
+
+--- TICK CHECK ---
+stv_k: [0 0 2 0]
+is_stv_empty: False
+current_c_k: [0 0 2 0]
+all_halted: False
+
+--- TICK CHECK ---
+stv_k: [0 0 1 0]
+is_stv_empty: False
+current_c_k: [0 0 3 0]
+all_halted: False
+
+--- TICK CHECK ---
+stv_k: [0 0 1 0]
+is_stv_empty: False
+current_c_k: [0 0 2 1]
+all_halted: False
+
+--- TICK CHECK ---
+stv_k: [0 0 0 0]
+is_stv_empty: True
+current_c_k: [0 0 2 1]
+nxt_c_k: [0 0 1 1]
+all_halted: False
+
+--- TICK CHECK ---
+stv_k: [0 0 0 0]
+is_stv_empty: True
+current_c_k: [0 0 1 1]
+nxt_c_k: [0 0 0 2]
+all_halted: False
+
+--- TICK CHECK ---
+stv_k: [0 0 0 0]
+is_stv_empty: True
+current_c_k: [0 0 0 2]
+nxt_c_k: [0 0 0 2]
+all_halted: True
+
+--- TICK CHECK ---
+stv_k: [0 0 2 0]
+is_stv_empty: False
+current_c_k: [0 0 0 0]
+all_halted: False
+
+--- TICK CHECK ---
+stv_k: [0 0 2 0]
+is_stv_empty: False
+current_c_k: [0 0 2 0]
+all_halted: False
+
+--- TICK CHECK ---
+stv_k: [0 0 1 0]
+is_stv_empty: False
+current_c_k: [0 0 3 0]
+all_halted: False
+
+--- TICK CHECK ---
+stv_k: [0 0 1 0]
+is_stv_empty: False
+current_c_k: [0 0 2 1]
+all_halted: False
+
+--- TICK CHECK ---
+stv_k: [0 0 0 0]
+is_stv_empty: True
+current_c_k: [0 0 2 1]
+nxt_c_k: [0 0 1 1]
+all_halted: False
+
+--- TICK CHECK ---
+stv_k: [0 0 0 0]
+is_stv_empty: True
+current_c_k: [0 0 1 1]
+nxt_c_k: [0 0 0 2]
+all_halted: False
+
+--- TICK CHECK ---
+stv_k: [0 0 0 0]
+is_stv_empty: True
+current_c_k: [0 0 0 2]
+nxt_c_k: [0 0 0 2]
+all_halted: True
+
+--- TICK CHECK ---
+stv_k: [0 0 2 0]
+is_stv_empty: False
+current_c_k: [0 0 0 0]
+all_halted: False
+
+--- TICK CHECK ---
+stv_k: [0 0 0 0]
+is_stv_empty: True
+current_c_k: [0 0 2 0]
+nxt_c_k: [0 0 1 0]
+all_halted: False
+
+--- TICK CHECK ---
+stv_k: [0 0 0 0]
+is_stv_empty: True
+current_c_k: [0 0 1 0]
+nxt_c_k: [0 0 0 1]
+all_halted: False
+
+--- TICK CHECK ---
+stv_k: [0 0 0 0]
+is_stv_empty: True
+current_c_k: [0 0 0 1]
+nxt_c_k: [0 0 0 1]
+all_halted: True
+
+--- TICK CHECK ---
+stv_k: [0 0 2 0]
+is_stv_empty: False
+current_c_k: [0 0 0 0]
+all_halted: False
+
+--- TICK CHECK ---
+stv_k: [0 0 0 0]
+is_stv_empty: True
+current_c_k: [0 0 2 0]
+nxt_c_k: [0 0 1 0]
+all_halted: False
+
+--- TICK CHECK ---
+stv_k: [0 0 0 0]
+is_stv_empty: True
+current_c_k: [0 0 1 0]
+nxt_c_k: [0 0 0 1]
+all_halted: False
+
+--- TICK CHECK ---
+stv_k: [0 0 1 0]
+is_stv_empty: False
+current_c_k: [0 0 0 1]
+all_halted: False
+
+--- TICK CHECK ---
+stv_k: [0 0 0 0]
+is_stv_empty: True
+current_c_k: [0 0 1 1]
+nxt_c_k: [0 0 0 2]
+all_halted: False
+
+--- TICK CHECK ---
+stv_k: [0 0 1 0]
+is_stv_empty: False
+current_c_k: [0 0 0 2]
+all_halted: False
+
+--- TICK CHECK ---
+stv_k: [0 0 0 0]
+is_stv_empty: True
+current_c_k: [0 0 1 2]
+nxt_c_k: [0 0 0 3]
+all_halted: False
+
+--- TICK CHECK ---
+stv_k: [0 0 0 0]
+is_stv_empty: True
+current_c_k: [0 0 0 3]
+nxt_c_k: [0 0 0 3]
+all_halted: True
+
+--- TICK CHECK ---
+stv_k: [0 0 2 0]
+is_stv_empty: False
+current_c_k: [0 0 0 0]
+all_halted: False
+
+--- TICK CHECK ---
+stv_k: [0 0 0 0]
+is_stv_empty: True
+current_c_k: [0 0 2 0]
+nxt_c_k: [0 0 1 0]
+all_halted: False
+
+--- TICK CHECK ---
+stv_k: [0 0 0 0]
+is_stv_empty: True
+current_c_k: [0 0 1 0]
+nxt_c_k: [0 0 0 1]
+all_halted: False
+
+--- TICK CHECK ---
+stv_k: [0 0 0 0]
+is_stv_empty: True
+current_c_k: [0 0 0 1]
+nxt_c_k: [0 0 0 1]
+all_halted: True
+
+--- TICK CHECK ---
+stv_k: [0 0 2 0]
+is_stv_empty: False
+current_c_k: [0 0 0 0]
+all_halted: False
+
+--- TICK CHECK ---
+stv_k: [0 0 0 0]
+is_stv_empty: True
+current_c_k: [0 0 2 0]
+nxt_c_k: [0 0 1 0]
+all_halted: False
+
+--- TICK CHECK ---
+stv_k: [0 0 0 0]
+is_stv_empty: True
+current_c_k: [0 0 1 0]
+nxt_c_k: [0 0 0 1]
+all_halted: False
+
+--- TICK CHECK ---
+stv_k: [0 0 0 0]
+is_stv_empty: True
+current_c_k: [0 0 0 1]
+nxt_c_k: [0 0 0 1]
+all_halted: True
+
+--- TICK CHECK ---
+stv_k: [0 0 2 0]
+is_stv_empty: False
+current_c_k: [0 0 0 0]
+all_halted: False
+
+--- TICK CHECK ---
+stv_k: [0 0 2 0]
+is_stv_empty: False
+current_c_k: [0 0 2 0]
+all_halted: False
+
+--- TICK CHECK ---
+stv_k: [0 0 1 0]
+is_stv_empty: False
+current_c_k: [0 0 3 0]
+all_halted: False
+
+--- TICK CHECK ---
+stv_k: [0 0 1 0]
+is_stv_empty: False
+current_c_k: [0 0 2 1]
+all_halted: False
+
+--- TICK CHECK ---
+stv_k: [0 0 0 0]
+is_stv_empty: True
+current_c_k: [0 0 2 1]
+nxt_c_k: [0 0 1 1]
+all_halted: False
+
+--- TICK CHECK ---
+stv_k: [0 0 0 0]
+is_stv_empty: True
+current_c_k: [0 0 1 1]
+nxt_c_k: [0 0 0 2]
+all_halted: False
+
+--- TICK CHECK ---
+stv_k: [0 0 0 0]
+is_stv_empty: True
+current_c_k: [0 0 0 2]
+nxt_c_k: [0 0 0 2]
+all_halted: True
+
+--- TICK CHECK ---
+stv_k: [0 0 2 0]
+is_stv_empty: False
+current_c_k: [0 0 0 0]
+all_halted: False
+
+--- TICK CHECK ---
+stv_k: [0 0 2 0]
+is_stv_empty: False
+current_c_k: [0 0 2 0]
+all_halted: False
+
+--- TICK CHECK ---
+stv_k: [0 0 1 0]
+is_stv_empty: False
+current_c_k: [0 0 3 0]
+all_halted: False
+
+--- TICK CHECK ---
+stv_k: [0 0 1 0]
+is_stv_empty: False
+current_c_k: [0 0 2 1]
+all_halted: False
+
+--- TICK CHECK ---
+stv_k: [0 0 0 0]
+is_stv_empty: True
+current_c_k: [0 0 2 1]
+nxt_c_k: [0 0 1 1]
+all_halted: False
+
+--- TICK CHECK ---
+stv_k: [0 0 0 0]
+is_stv_empty: True
+current_c_k: [0 0 1 1]
+nxt_c_k: [0 0 0 2]
+all_halted: False
+
+--- TICK CHECK ---
+stv_k: [0 0 0 0]
+is_stv_empty: True
+current_c_k: [0 0 0 2]
+nxt_c_k: [0 0 0 2]
+all_halted: True
+
+--- TICK CHECK ---
+stv_k: [0 0 2 0]
+is_stv_empty: False
+current_c_k: [0 0 0 0]
+all_halted: False
+
+--- TICK CHECK ---
+stv_k: [0 0 2 0]
+is_stv_empty: False
+current_c_k: [0 0 0 0]
+all_halted: False
+
+--- TICK CHECK ---
+stv_k: [0 0 2 0]
+is_stv_empty: False
+current_c_k: [0 0 2 0]
+all_halted: False
+
+--- TICK CHECK ---
+stv_k: [0 0 2 0]
+is_stv_empty: False
+current_c_k: [0 0 0 0]
+all_halted: False
+
+--- TICK CHECK ---
+stv_k: [0 0 2 0]
+is_stv_empty: False
+current_c_k: [0 0 0 0]
+all_halted: False
+
+--- TICK CHECK ---
+stv_k: [0 0 2 0]
+is_stv_empty: False
+current_c_k: [0 0 0 0]
+all_halted: False
+
+--- TICK CHECK ---
+stv_k: [0 0 2 0]
+is_stv_empty: False
+current_c_k: [0 0 0 0]
+all_halted: False
+
+--- TICK CHECK ---
+stv_k: [0 0 2 0]
+is_stv_empty: False
+current_c_k: [0 0 2 0]
+all_halted: False
+
+--- TICK CHECK ---
+stv_k: [0 0 1 0]
+is_stv_empty: False
+current_c_k: [0 0 3 0]
+all_halted: False
+
+--- TICK CHECK ---
+stv_k: [0 0 1 0]
+is_stv_empty: False
+current_c_k: [0 0 2 1]
+all_halted: False
+
+--- TICK CHECK ---
+stv_k: [0 0 0 0]
+is_stv_empty: True
+current_c_k: [0 0 2 1]
+nxt_c_k: [0 0 1 1]
+all_halted: False
+
+--- TICK CHECK ---
+stv_k: [0 0 0 0]
+is_stv_empty: True
+current_c_k: [0 0 1 1]
+nxt_c_k: [0 0 0 2]
+all_halted: False
+
+--- TICK CHECK ---
+stv_k: [0 0 0 0]
+is_stv_empty: True
+current_c_k: [0 0 0 2]
+nxt_c_k: [0 0 0 2]
+all_halted: True
+
+--- TICK CHECK ---
+stv_k: [0 0 2 0]
+is_stv_empty: False
+current_c_k: [0 0 0 0]
+all_halted: False
+
+--- TICK CHECK ---
+stv_k: [0 0 2 0]
+is_stv_empty: False
+current_c_k: [0 0 2 0]
+all_halted: False
+
+--- TICK CHECK ---
+stv_k: [0 0 1 0]
+is_stv_empty: False
+current_c_k: [0 0 3 0]
+all_halted: False
+
