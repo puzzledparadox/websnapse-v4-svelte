@@ -299,6 +299,7 @@ def get_all_next_nondet(current_state, rules_metadata, m_pi, stv_k, rule_delays)
             'dsv': new_dsv,
             'div': new_div,
             'rule_contribution': rule_contribution,
+            'iv': iv,
         })
 
     # Halting detection

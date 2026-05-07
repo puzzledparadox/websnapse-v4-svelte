@@ -6,6 +6,8 @@ export class SimulationService {
     possibilities = $state([]);
     // Rune for storing string judging results
     judgeResults = $state<Record<string, string>>({});
+    // Rune for tracking history of simulation states
+    history = $state<any[]>([]);
 
     connect() {
         this.socket = new WebSocket('ws://localhost:8000/ws/simulate');
@@ -39,6 +41,7 @@ export class SimulationService {
     reset() {
         if (this.socket && this.isConnected) {
             this.socket.send(JSON.stringify({ type: 'reset' }));
+            this.history = [];
         }
     }
 }

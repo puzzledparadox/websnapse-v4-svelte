@@ -115,6 +115,7 @@ async def websocket_simulate(websocket: WebSocket):
                         'div': res['div'].tolist(),
                         'dsv': res['dsv'].tolist(),
                         'rule_contribution': res['rule_contribution'].tolist(),
+                        'iv': res['iv'].tolist(),
                         'is_halted': res.get('is_halted', False)
                     })
 

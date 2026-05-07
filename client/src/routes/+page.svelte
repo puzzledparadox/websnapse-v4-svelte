@@ -13,6 +13,7 @@
 	import { ShieldAlert, LayoutGrid, Maximize, Sparkles, Radiation, Download, Trash2, Layers, Focus, Copy, Hash, PanelLeftClose, PanelLeftOpen } from 'lucide-svelte';
 	import dagre from 'dagre';
 	import '@xyflow/svelte/dist/style.css';
+	import Katex from 'svelte-katex';
 
 	const nodeTypes = {
 		neuron: NeuronNode
@@ -93,6 +94,68 @@
 			data: { id: 'out', neuronType: 'output', spikes: '', delay: 0, rules: [] }
 		}
 	]);
+
+	let showHistory = $state(false);
+
+	function getOrderedRules() {
+		let orderedRules: string[] = [];
+		nodes.forEach(n => {
+			const ntype = n.data.neuronType;
+			if (ntype === 'input' || ntype === 'Input' || ntype === 'output' || ntype === 'Output') return;
+			const rules = n.data.rules || [];
+			rules.forEach(r => orderedRules.push(`${n.data.id}: ${r}`));
+		});
+		return orderedRules;
+	}
+
+	function formatSpikeTrain(train: string | number) {
+		if (train === undefined || train === null || train === '') return '-';
+		const str = String(train);
+		if (!str) return '-';
+		
+		let compressed = '';
+		let i = 0;
+		while (i < str.length) {
+			let count = 1;
+			while (i + 1 < str.length && str[i] === str[i + 1]) {
+				count++;
+				i++;
+			}
+			if (count > 1) {
+				compressed += `${str[i]}^{${count}}`;
+			} else {
+				compressed += str[i];
+			}
+			i++;
+		}
+		return compressed;
+	}
+
+	function recordHistory(firedRules: string[] = []) {
+		const nodeStates: Record<string, any> = {};
+		nodes.forEach(n => {
+			nodeStates[n.data.id] = {
+				spikes: n.data.spikes,
+				type: n.data.neuronType
+			};
+		});
+
+		const ruleByNode: Record<string, string> = {};
+		firedRules.forEach(fr => {
+			const parts = fr.split(': ');
+			if (parts.length >= 2) {
+				const nodeId = parts[0];
+				const rule = parts.slice(1).join(': ');
+				ruleByNode[nodeId] = rule;
+			}
+		});
+
+		simulation.history.push({
+			tick: tick,
+			nodeStates,
+			ruleByNode
+		});
+	}
 
 	let edges = $state([
 		{
@@ -217,6 +280,7 @@
 
 		simulation.possibilities = [];
 		simulation.reset();
+		recordHistory();
 	}
 
 	function handleStepBack() {
@@ -228,10 +292,25 @@
 			tick = prevState.tick;
 			isHalted = false;
 			simulation.possibilities = [];
+			
+			if (simulation.history.length > 0) {
+				simulation.history.pop();
+			}
 		}
 	}
 
 	function applyBranch(pos) {
+		// Track which neurons fired for edge animation
+		const firedNeurons = new Set<string>();
+		
+		const firedRules: string[] = [];
+		if (pos.iv) {
+			const ruleNames = getOrderedRules();
+			pos.iv.forEach((fired: number, idx: number) => {
+				if (fired === 1 && ruleNames[idx]) firedRules.push(ruleNames[idx]);
+			});
+		}
+
 		// Save to history before modifying state
 		simHistory.push({
 			nodes: JSON.parse(JSON.stringify(nodes)),
@@ -239,9 +318,6 @@
 			systemState: JSON.parse(JSON.stringify(systemState)),
 			tick: tick
 		});
-
-		// Track which neurons fired for edge animation
-		const firedNeurons = new Set<string>();
 
 		// Update nodes immutably to trigger Svelte Flow reactivity
 		nodes = nodes.map((n, i) => {
@@ -294,6 +370,8 @@
 		systemState.div = pos.div;
 		systemState.dsv = pos.dsv;
 		tick++;
+		
+		recordHistory(firedRules);
 
 		if (pos.is_halted) {
 			isHalted = true;
@@ -491,6 +569,7 @@
 		systemState.dsv = [];
 		simulation.possibilities = [];
 		simulation.reset();
+		recordHistory();
 	}
 
 	function exportSystem() {
@@ -537,6 +616,7 @@
 					systemState = parsed.systemState || systemState;
 
 					simulation.reset(); // Send Reset/Initialize command
+					recordHistory();
 				}, 50);
 			} catch (err) {
 				console.error('Failed to parse JSON', err);
@@ -624,6 +704,7 @@
 				};
 			}
 			simulation.reset();
+			recordHistory();
 		}, 50);
 	}
 
@@ -939,7 +1020,7 @@
 
 	<!-- Visualization Canvas (WebSnapse Reloaded) -->
 	<section class="relative flex-1">
-		<Toolbar bind:activeTool={activeTool} onClear={() => showClearModal = true} />
+		<Toolbar bind:activeTool={activeTool} bind:showHistory={showHistory} onClear={() => showClearModal = true} />
 		<SimulationBar
 			isConnected={simulation.isConnected}
 			{isHalted}
@@ -950,6 +1031,64 @@
 			onModeChange={handleSimModeChange}
 			onSpeedChange={handleSimSpeedChange}
 		/>
+
+		<!-- Tick Counter HUD -->
+		<div class="absolute left-4 top-4 z-50 rounded bg-gray-900/80 px-3 py-1 font-mono text-sm font-bold text-white shadow backdrop-blur-sm">
+			k = {tick}
+		</div>
+
+		<!-- History Panel -->
+		{#if showHistory}
+			<div class="absolute right-4 top-20 z-50 flex max-h-[80vh] w-auto max-w-4xl flex-col overflow-hidden rounded-lg border border-gray-200 bg-white shadow-xl">
+				<div class="flex items-center justify-between border-b bg-gray-50 px-4 py-2">
+					<h3 class="font-bold text-gray-800">State History</h3>
+					<button class="text-gray-500 hover:text-gray-700" onclick={() => showHistory = false}>&times;</button>
+				</div>
+				<div class="flex-1 overflow-auto p-4">
+					{#if simulation.history.length === 0}
+						<p class="text-sm text-gray-500 italic">No history yet. Start simulation or apply a branch.</p>
+					{:else}
+						<table class="w-full border-collapse text-center text-sm">
+							<thead class="bg-gray-200">
+								<tr class="text-gray-800">
+									<th class="border border-gray-300 px-4 py-2 font-bold">Time</th>
+									{#each nodes as node}
+										<th class="border border-gray-300 px-4 py-2 font-bold">
+											<Katex>{node.data.id}</Katex>
+										</th>
+									{/each}
+								</tr>
+							</thead>
+							<tbody>
+								{#each simulation.history as entry, i}
+									<tr class={i % 2 === 0 ? 'bg-white' : 'bg-gray-100'}>
+										<td class="border border-gray-300 px-4 py-2 font-bold text-gray-800">{entry.tick}</td>
+										{#each nodes as node}
+											<td class="border border-gray-300 px-4 py-2 text-gray-800">
+												{#if node.data.neuronType === 'regular'}
+													{#if entry.ruleByNode && entry.ruleByNode[node.data.id]}
+														<Katex>{entry.ruleByNode[node.data.id]}</Katex>
+													{:else}
+														-
+													{/if}
+												{:else}
+													{#if entry.nodeStates && entry.nodeStates[node.data.id] && String(entry.nodeStates[node.data.id].spikes) !== ''}
+														<Katex>{formatSpikeTrain(entry.nodeStates[node.data.id].spikes)}</Katex>
+													{:else}
+														-
+													{/if}
+												{/if}
+											</td>
+										{/each}
+									</tr>
+								{/each}
+							</tbody>
+						</table>
+					{/if}
+				</div>
+			</div>
+		{/if}
+
 		<NodeCreationModal
 			bind:show={showNodeModal}
 			defaultId={defaultNodeId}

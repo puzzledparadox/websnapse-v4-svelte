@@ -5,10 +5,11 @@
 		ArrowRight, 
 		Trash2, 
 		Hand, 
-		ShieldAlert 
+		ShieldAlert,
+		History 
 	} from 'lucide-svelte';
 
-	let { activeTool = $bindable('select'), onClear } = $props();
+	let { activeTool = $bindable('select'), showHistory = $bindable(false), onClear } = $props();
 
 	const tools = [
 		{ id: 'select', icon: MousePointer2, label: 'Select (V)' },
@@ -59,6 +60,23 @@
 			</div>
 		</button>
 	{/each}
+
+	<div class="mx-1 h-6 border-l border-gray-300"></div>
+
+	<button
+		class="group relative flex h-10 w-10 items-center justify-center rounded-md border transition-colors
+			{showHistory 
+				? 'bg-blue-100 border-blue-500 text-blue-700 shadow-sm' 
+				: 'border-transparent bg-transparent text-gray-600 hover:bg-gray-200 hover:text-gray-900'}"
+		onclick={() => showHistory = !showHistory}
+		title="Toggle History"
+	>
+		<History size={20} />
+		
+		<div class="pointer-events-none absolute top-full mt-2 whitespace-nowrap rounded bg-gray-800 px-2 py-1 text-xs font-medium text-white opacity-0 transition-opacity group-hover:opacity-100">
+			Toggle History
+		</div>
+	</button>
 
 	<div class="mx-1 h-6 border-l border-gray-300"></div>
 
