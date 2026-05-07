@@ -8,7 +8,10 @@
 	import SimulationBar from '$lib/components/SimulationBar.svelte';
 	import NodeCreationModal from '$lib/components/NodeCreationModal.svelte';
 	import ContextMenu from '$lib/components/ContextMenu.svelte';
+	import GalleryPanel from '$lib/components/GalleryPanel.svelte';
+	import Toast, { showToast } from '$lib/components/Toast.svelte';
 	import { simulation } from '$lib/services/simulation.svelte';
+	import { type GallerySystem } from '$lib/constants/gallery';
 	import { onMount, untrack } from 'svelte';
 	import { ShieldAlert, LayoutGrid, Maximize, Sparkles, Radiation, Download, Trash2, Layers, Focus, Copy, Hash, PanelLeftClose, PanelLeftOpen } from 'lucide-svelte';
 	import dagre from 'dagre';
@@ -47,6 +50,7 @@
 	let simMode = $state<'pseudorandom' | 'guided'>('pseudorandom');
 	let autoPlayInterval: ReturnType<typeof setInterval> | null = null;
 	let isHalted = $state(false);
+	let simIsPlaying = $state(false);
 
 	// Snapshot of initial state for restart
 	let initialNodes: typeof nodes | null = null;
@@ -627,84 +631,49 @@
 		reader.readAsText(file);
 	}
 
-	function loadTemplate(type) {
+	function loadGallerySystem(system: GallerySystem) {
+		// Stop any running simulation
+		if (autoPlayInterval) {
+			clearInterval(autoPlayInterval);
+			autoPlayInterval = null;
+		}
+		simIsPlaying = false;
+
+		// Clear canvas
 		nodes = [];
 		edges = [];
 		tick = 0;
+		isHalted = false;
 		simHistory = [];
 		simulation.possibilities = [];
+		simulation.history = [];
 
 		setTimeout(() => {
-			if (type === 'parity') {
-				nodes = [
-					{
-						id: 'n1',
-						type: 'neuron',
-						position: { x: 250, y: 250 },
-						data: { id: 'σ₁', neuronType: 'input', spikes: 0, delay: 0, rules: ['a^2/a \\to a; 1'] }
-					}
-				];
-				edges = [];
-				systemState = {
-					name: 'Even Parity Checker',
-					div: [],
-					dsv: []
-				};
-			} else if (type === 'fibonacci') {
-				nodes = [
-					{
-						id: 'n1',
-						type: 'neuron',
-						position: { x: 150, y: 250 },
-						data: {
-							id: 'σ₁',
-							neuronType: 'input',
-							spikes: 2,
-							delay: 0,
-							rules: ['a^2/a \\to a; 1', 'a \\to \\lambda']
-						}
-					},
-					{
-						id: 'n2',
-						type: 'neuron',
-						position: { x: 500, y: 150 },
-						data: { id: 'σ₂', neuronType: 'output', spikes: 1, delay: 0, rules: [] }
-					},
-					{
-						id: 'n3',
-						type: 'neuron',
-						position: { x: 500, y: 350 },
-						data: { id: 'σ₃', neuronType: 'output', spikes: 3, delay: 0, rules: [] }
-					}
-				];
-				edges = [
-					{
-						id: 'e1-2',
-						source: 'n1',
-						target: 'n2',
-						type: 'synapse',
-						style: 'stroke: #a855f7; stroke-width: 2px;',
-						data: { isFiring: true },
-						markerEnd: { type: MarkerType.ArrowClosed, color: '#a855f7' }
-					},
-					{
-						id: 'e1-3',
-						source: 'n1',
-						target: 'n3',
-						type: 'synapse',
-						style: 'stroke: #a855f7; stroke-width: 2px;',
-						data: { isFiring: false },
-						markerEnd: { type: MarkerType.ArrowClosed, color: '#a855f7' }
-					}
-				];
-				systemState = {
-					name: 'Fibonacci Generator',
-					div: [],
-					dsv: []
-				};
-			}
+			// Deep-clone nodes from gallery schema
+			nodes = JSON.parse(JSON.stringify(system.nodes));
+
+			// Deep-clone edges and fix MarkerType (gallery uses plain strings)
+			edges = JSON.parse(JSON.stringify(system.edges)).map((e: any) => ({
+				...e,
+				markerEnd: { type: MarkerType.ArrowClosed, color: '#a855f7' }
+			}));
+
+			systemState = JSON.parse(JSON.stringify(system.systemState));
+
+			// Snapshot for restart
+			initialNodes = JSON.parse(JSON.stringify(nodes));
+			initialEdges = JSON.parse(JSON.stringify(edges));
+			initialSystemState = JSON.parse(JSON.stringify(systemState));
+
+			// Sync backend
 			simulation.reset();
 			recordHistory();
+
+			// Auto-fit the view to show the loaded system
+			setTimeout(() => fitView({ padding: 0.25, duration: 600 }), 100);
+
+			// Toast notification
+			showToast(`"${system.title}" loaded successfully`, 'success');
 		}, 50);
 	}
 
@@ -897,20 +866,7 @@
 			</div>
 
 			<h3 class="mt-4 mb-2 text-sm font-semibold text-gray-700">Pre-built Gallery</h3>
-			<div class="flex gap-2">
-				<button
-					onclick={() => loadTemplate('parity')}
-					class="flex-1 rounded bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-200"
-				>
-					Even Parity
-				</button>
-				<button
-					onclick={() => loadTemplate('fibonacci')}
-					class="flex-1 rounded bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-200"
-				>
-					Fibonacci
-				</button>
-			</div>
+			<GalleryPanel onSelect={loadGallerySystem} />
 		</div>
 
 		<!-- Max Search Depth -->
@@ -1024,6 +980,7 @@
 		<SimulationBar
 			isConnected={simulation.isConnected}
 			{isHalted}
+			bind:isPlaying={simIsPlaying}
 			onStep={handleStep}
 			onStepBack={handleStepBack}
 			onPlayPause={handleSimPlayPause}
@@ -1033,8 +990,9 @@
 		/>
 
 		<!-- Tick Counter HUD -->
-		<div class="absolute left-4 top-4 z-50 rounded bg-gray-900/80 px-3 py-1 font-mono text-sm font-bold text-white shadow backdrop-blur-sm">
-			k = {tick}
+		<div class="absolute left-4 top-4 z-50 flex items-center gap-1.5 rounded bg-gray-900/80 px-3 py-1.5 text-sm font-bold text-white shadow backdrop-blur-sm">
+			<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="opacity-70"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+			Tick: {tick}
 		</div>
 
 		<!-- History Panel -->
@@ -1167,6 +1125,9 @@
 			<CustomMiniMap {nodes} {edges} />
 		</SvelteFlow>
 	</section>
+
+	<!-- Toast notifications -->
+	<Toast />
 </main>
 
 <style>

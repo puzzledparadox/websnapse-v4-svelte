@@ -1,0 +1,304 @@
+/**
+ * Pre-built SN P System Gallery
+ * 
+ * Each system is a complete schema that can be loaded directly into the
+ * WebSnapse v4 canvas. Nodes/edges follow the same structure used by
+ * +page.svelte state, and rules use LaTeX notation for svelte-katex rendering.
+ */
+
+export interface GallerySystem {
+	id: string;
+	title: string;
+	description: string;
+	category: 'generators' | 'arithmetic' | 'comparators' | 'custom';
+	nodes: any[];
+	edges: any[];
+	systemState: {
+		name: string;
+		div: number[];
+		dsv: number[];
+	};
+}
+
+// Shared edge styling helper
+function makeEdge(
+	id: string,
+	source: string,
+	target: string,
+	weight: number = 1
+) {
+	return {
+		id,
+		source,
+		target,
+		type: 'synapse',
+		style: 'stroke: #a855f7; stroke-width: 2px;',
+		data: { isFiring: false, weight },
+		markerEnd: { type: 'arrowclosed', color: '#a855f7' }
+	};
+}
+
+// ─── 2N Generator ──────────────────────────────────────────────────────────────
+// A three-neuron system that generates a spike train encoding 2n.
+// Neuron 1 (σ₁): 2 spikes, rules: a²/a → a; 1, a → λ
+// Neuron 2 (σ₂): 1 spike,  rules: a → a; 1, a → a; 2
+// Neuron 3 (σ₃): 3 spikes, rules: a³ → a; 0, a → a; 2, a² → λ
+// Output environment (env_out)
+// ────────────────────────────────────────────────────────────────────────────────
+const twoNGenerator: GallerySystem = {
+	id: '2n-generator',
+	title: '2N Generator',
+	description: 'Generates a spike train representing 2n. Uses three regular neurons with forgetting rules to produce the sequence.',
+	category: 'generators',
+	nodes: [
+		{
+			id: 'n1',
+			type: 'neuron',
+			position: { x: 100, y: 150 },
+			data: {
+				id: '\\sigma_1',
+				neuronType: 'regular',
+				spikes: 2,
+				delay: 0,
+				rules: ['a^2/a \\to a; 1', 'a \\to \\lambda']
+			}
+		},
+		{
+			id: 'n2',
+			type: 'neuron',
+			position: { x: 400, y: 300 },
+			data: {
+				id: '\\sigma_2',
+				neuronType: 'regular',
+				spikes: 1,
+				delay: 0,
+				rules: ['a \\to a; 1', 'a \\to a; 2']
+			}
+		},
+		{
+			id: 'n3',
+			type: 'neuron',
+			position: { x: 600, y: 100 },
+			data: {
+				id: '\\sigma_3',
+				neuronType: 'regular',
+				spikes: 3,
+				delay: 0,
+				rules: ['a^3 \\to a; 0', 'a \\to a; 2', 'a^2 \\to \\lambda']
+			}
+		},
+		{
+			id: 'n4',
+			type: 'neuron',
+			position: { x: 900, y: 200 },
+			data: {
+				id: 'env_{out}',
+				neuronType: 'output',
+				spikes: '',
+				delay: 0,
+				rules: []
+			}
+		}
+	],
+	edges: [
+		makeEdge('e1-2', 'n1', 'n2'),  // σ₁ → σ₂
+		makeEdge('e2-1', 'n2', 'n1'),  // σ₂ → σ₁
+		makeEdge('e1-3', 'n1', 'n3'),  // σ₁ → σ₃
+		makeEdge('e2-3', 'n2', 'n3'),  // σ₂ → σ₃
+		makeEdge('e3-4', 'n3', 'n4'),  // σ₃ → env_out
+	],
+	systemState: {
+		name: '2N Generator',
+		div: [],
+		dsv: []
+	}
+};
+
+// ─── Bit Adder (Serial) ────────────────────────────────────────────────────────
+// Bitwise serial binary adder.
+// Two input neurons feed bitstrings into a single adder neuron (add_{0,1}).
+// Adder rules:  a → a; 0,   a²/a → λ,   a³/a² → a; 0
+// Output neuron collects the addition result.
+// ────────────────────────────────────────────────────────────────────────────────
+const bitAdderSerial: GallerySystem = {
+	id: 'bit-adder-serial',
+	title: 'Bit Adder (Serial)',
+	description: 'Bitwise serial binary adder using neuron add_{0,1} with spiking/forgetting rules for carry propagation.',
+	category: 'arithmetic',
+	nodes: [
+		{
+			id: 'n1',
+			type: 'neuron',
+			position: { x: 150, y: 100 },
+			data: {
+				id: 'in_0',
+				neuronType: 'input',
+				spikes: '111',
+				delay: 0,
+				rules: []
+			}
+		},
+		{
+			id: 'n2',
+			type: 'neuron',
+			position: { x: 150, y: 350 },
+			data: {
+				id: 'in_1',
+				neuronType: 'input',
+				spikes: '1101',
+				delay: 0,
+				rules: []
+			}
+		},
+		{
+			id: 'n3',
+			type: 'neuron',
+			position: { x: 450, y: 225 },
+			data: {
+				id: 'add_{0,1}',
+				neuronType: 'regular',
+				spikes: 0,
+				delay: 0,
+				rules: ['a \\to a; 0', 'a^2/a \\to \\lambda', 'a^3/a^2 \\to a; 0']
+			}
+		},
+		{
+			id: 'n4',
+			type: 'neuron',
+			position: { x: 750, y: 225 },
+			data: {
+				id: 'out',
+				neuronType: 'output',
+				spikes: '',
+				delay: 0,
+				rules: []
+			}
+		}
+	],
+	edges: [
+		makeEdge('e1-3', 'n1', 'n3'),  // in_0 → add
+		makeEdge('e2-3', 'n2', 'n3'),  // in_1 → add
+		makeEdge('e3-4', 'n3', 'n4'),  // add  → out
+	],
+	systemState: {
+		name: 'Bit Adder (Serial)',
+		div: [],
+		dsv: []
+	}
+};
+
+// ─── Comparator ────────────────────────────────────────────────────────────────
+// Compares two binary inputs and outputs which is larger or if they are equal.
+// Two input neurons (a, b) feed into:
+//   - "one" neuron: forgetting-based detection, rules: a² → λ, a → a; 0
+//   - "both" neuron: joint-signal detection, rules: a² → a; 0, a → λ
+// Two output neurons: "max" and "min".
+// ────────────────────────────────────────────────────────────────────────────────
+const comparator: GallerySystem = {
+	id: 'comparator',
+	title: 'Comparator',
+	description: 'Compares two binary inputs and determines which is larger, or if they are equal, using "one" and "both" detector neurons.',
+	category: 'comparators',
+	nodes: [
+		{
+			id: 'n1',
+			type: 'neuron',
+			position: { x: 150, y: 80 },
+			data: {
+				id: 'a',
+				neuronType: 'input',
+				spikes: '1111',
+				delay: 0,
+				rules: []
+			}
+		},
+		{
+			id: 'n2',
+			type: 'neuron',
+			position: { x: 150, y: 380 },
+			data: {
+				id: 'b',
+				neuronType: 'input',
+				spikes: '11',
+				delay: 0,
+				rules: []
+			}
+		},
+		{
+			id: 'n3',
+			type: 'neuron',
+			position: { x: 450, y: 100 },
+			data: {
+				id: 'one',
+				neuronType: 'regular',
+				spikes: 0,
+				delay: 0,
+				rules: ['a^2 \\to \\lambda', 'a \\to a; 0']
+			}
+		},
+		{
+			id: 'n4',
+			type: 'neuron',
+			position: { x: 450, y: 360 },
+			data: {
+				id: 'both',
+				neuronType: 'regular',
+				spikes: 0,
+				delay: 0,
+				rules: ['a^2 \\to a; 0', 'a \\to \\lambda']
+			}
+		},
+		{
+			id: 'n5',
+			type: 'neuron',
+			position: { x: 750, y: 100 },
+			data: {
+				id: 'max',
+				neuronType: 'output',
+				spikes: '',
+				delay: 0,
+				rules: []
+			}
+		},
+		{
+			id: 'n6',
+			type: 'neuron',
+			position: { x: 750, y: 360 },
+			data: {
+				id: 'min',
+				neuronType: 'output',
+				spikes: '',
+				delay: 0,
+				rules: []
+			}
+		}
+	],
+	edges: [
+		makeEdge('e1-3', 'n1', 'n3'),  // a → one
+		makeEdge('e1-4', 'n1', 'n4'),  // a → both
+		makeEdge('e2-3', 'n2', 'n3'),  // b → one
+		makeEdge('e2-4', 'n2', 'n4'),  // b → both
+		makeEdge('e3-5', 'n3', 'n5'),  // one  → max
+		makeEdge('e4-5', 'n4', 'n5'),  // both → max
+		makeEdge('e4-6', 'n4', 'n6'),  // both → min
+	],
+	systemState: {
+		name: 'Comparator',
+		div: [],
+		dsv: []
+	}
+};
+
+// ─── Export Gallery ─────────────────────────────────────────────────────────────
+export const GALLERY_SYSTEMS: GallerySystem[] = [
+	twoNGenerator,
+	bitAdderSerial,
+	comparator
+];
+
+export const GALLERY_CATEGORIES = [
+	{ id: 'all', label: 'All Systems' },
+	{ id: 'generators', label: 'Generators' },
+	{ id: 'arithmetic', label: 'Arithmetic' },
+	{ id: 'comparators', label: 'Comparators' },
+] as const;

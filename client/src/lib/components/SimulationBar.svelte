@@ -11,6 +11,7 @@
 
 	let {
 		isConnected = false,
+		isPlaying = $bindable(false),
 		onStep = () => {},
 		onStepBack = () => {},
 		onPlayPause = () => {},
@@ -18,8 +19,6 @@
 		onModeChange = (mode: 'pseudorandom' | 'guided') => {},
 		onSpeedChange = (speed: number) => {}
 	} = $props();
-
-	let isPlaying = $state(false);
 	let mode = $state<'pseudorandom' | 'guided'>('pseudorandom');
 	let speed = $state(1.5);
 

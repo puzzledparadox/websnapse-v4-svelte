@@ -90,7 +90,7 @@
 
 	<!-- Top: Neuron ID and Spike Count -->
 	<div class="mb-2 flex items-center justify-between gap-2 border-b pb-1 pt-1">
-		<span class="font-mono text-xs text-gray-400">{data.id}</span>
+		<span class="font-mono text-xs text-gray-400"><Katex>{data.id}</Katex></span>
 		<span class="text-lg font-bold {spikeColorClass}">
 			{#if isInput || isOutput}
 				{#key data.spikes}
