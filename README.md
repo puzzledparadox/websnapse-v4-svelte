@@ -57,7 +57,7 @@ An integrated **Gallery** containing pre-built templates of famous SN P systems,
 2. Create a virtual environment: `python -m venv venv`
 3. Activate it: `source venv/bin/activate` (or `venv\Scripts\activate` on Windows)
 4. Install dependencies: `pip install fastapi uvicorn numpy`
-5. Start the engine: `python main.py`
+5. Start the engine: `uvicorn main:app --reload`
 
 ### Frontend Setup
 1. Navigate to the `client` directory: `cd client`
@@ -71,7 +71,7 @@ An integrated **Gallery** containing pre-built templates of famous SN P systems,
 
 This project is the terminal thesis work of **Arturo Miguel V. Saquilayan** in partial fulfillment of the requirements for the **CS 199 (Special Problems II)** course at the **University of the Philippines Diliman**. 
 
-**Adviser**: Francis George Cabarle
+**Adviser**: Francis George C. Cabarle
 **Department**: Department of Computer Science, College of Engineering.
 
 ---
