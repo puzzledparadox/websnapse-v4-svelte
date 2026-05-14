@@ -20,24 +20,11 @@
 	let isClosed = $derived(data.delay > 0);
 	let isActive = $derived(data.previewFiring !== undefined ? !!data.previewFiring : !!data.isFiring);
 
-	let borderColorClass = $derived(
-		isActive
-			? 'border-purple-500 ring-2 ring-purple-300/60'
-			: isClosed
-				? 'border-red-500 ring-2 ring-red-200'
-				: isInput
-					? 'border-emerald-500'
-					: isOutput
-						? 'border-amber-500'
-						: 'border-slate-300'
-	);
-
-	let glowStyle = $derived(
-		isActive
-			? 'box-shadow: 0 0 16px 4px rgba(168, 85, 247, 0.4);'
-			: isClosed
-				? 'box-shadow: 0 0 14px 3px rgba(239, 68, 68, 0.35);'
-				: ''
+	let stateClass = $derived(
+		isActive ? 'is-active' :
+		isClosed ? 'is-closed' :
+		isInput ? 'is-input' :
+		isOutput ? 'is-output' : ''
 	);
 
 	let spikeColorClass = $derived(
@@ -94,8 +81,7 @@
 
 <!-- Neuron visual container -->
 <div
-	class="relative min-w-[120px] rounded-xl border-2 bg-white px-4 py-2 shadow-md transition-[border-color,box-shadow,transform] duration-300 {borderColorClass}"
-	style={glowStyle}
+	class="neuron-node {stateClass} relative min-w-[120px] rounded-xl border-2 bg-white px-4 py-2 shadow-md transition-[border-color,box-shadow,transform] duration-300"
 >
 	{#if isInput || isOutput}
 		<div

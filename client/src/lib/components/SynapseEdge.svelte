@@ -20,7 +20,7 @@
 		targetPosition,
 		markerEnd = '',
 		style = '',
-		data
+		data = undefined
 	} = $props();
 
 	let isFiring = $derived(data?.previewFiring !== undefined ? !!data?.previewFiring : !!data?.isFiring);
@@ -40,14 +40,9 @@
 	let labelX = $derived(pathParams[1]);
 	let labelY = $derived(pathParams[2]);
 
-	let edgeStyle = $derived(
-		isFiring
-			? 'stroke: #a855f7; stroke-width: 2.5px;'
-			: 'stroke: #334155; stroke-width: 1.5px;'
-	);
 </script>
 
-<BaseEdge {path} {markerEnd} style={edgeStyle} class={isFiring ? 'synapse-firing' : ''} />
+<BaseEdge {path} {markerEnd} class={isFiring ? 'synapse-edge-firing' : 'synapse-edge-idle'} />
 
 <EdgeLabel
 	x={labelX}
@@ -68,16 +63,3 @@
 	</div>
 </EdgeLabel>
 
-<style>
-	:global(.synapse-firing) {
-		stroke-dasharray: 6 3;
-		animation: marchingAnts 0.4s linear infinite;
-		filter: drop-shadow(0 0 3px rgba(168, 85, 247, 0.5));
-	}
-
-	@keyframes marchingAnts {
-		to {
-			stroke-dashoffset: -18;
-		}
-	}
-</style>

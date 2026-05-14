@@ -1,0 +1,76 @@
+@theme {
+  --color-brand-primary: #a855f7; /* purple-500 */
+  --color-brand-primary-light: rgba(168, 85, 247, 0.4);
+  --color-brand-primary-dark: #7e22ce; /* purple-700 */
+
+  /* Neuron Types */
+  --color-neuron-input: #10b981; /* emerald-500 */
+  --color-neuron-input-dark: #047857; /* emerald-700 */
+  --color-neuron-output: #f59e0b; /* amber-500 */
+  --color-neuron-output-dark: #b45309; /* amber-700 */
+  
+  /* Neuron States */
+  --color-neuron-regular-border: #cbd5e1; /* slate-300 */
+  --color-neuron-active-border: #a855f7; /* purple-500 */
+  --color-neuron-closed-border: #ef4444; /* red-500 */
+  --color-neuron-closed-badge: #dc2626; /* red-600 */
+  --color-neuron-closed-bg: #fef2f2; /* red-50 */
+  
+  /* Glow Effects */
+  --shadow-neuron-active-glow: 0 0 16px 4px rgba(168, 85, 247, 0.4);
+  --shadow-neuron-closed-glow: 0 0 14px 3px rgba(239, 68, 68, 0.35);
+  --shadow-synapse-glow: drop-shadow(0 0 3px rgba(168, 85, 247, 0.5));
+
+  /* Synapse Edges */
+  --color-synapse-idle: #334155; /* slate-700 */
+  --color-synapse-firing: #a855f7; /* purple-500 */
+}
+
+/* Base utility classes for Svelte components to bind to */
+@layer utilities {
+  .synapse-edge-idle {
+    stroke: var(--color-synapse-idle);
+    stroke-width: 1.5px;
+  }
+
+  .synapse-edge-firing {
+    stroke: var(--color-synapse-firing);
+    stroke-width: 2.5px;
+    stroke-dasharray: 6 3;
+    animation: marchingAnts 0.4s linear infinite;
+    filter: var(--shadow-synapse-glow);
+  }
+
+  @keyframes marchingAnts {
+    to { stroke-dashoffset: -18; }
+  }
+
+  /* Neuron Visuals */
+  .neuron-node {
+    border-color: var(--color-neuron-regular-border);
+  }
+
+  .neuron-node.is-active {
+    border-color: var(--color-neuron-active-border);
+    box-shadow: var(--shadow-neuron-active-glow);
+    --tw-ring-color: rgba(216, 180, 254, 0.6); /* ring-purple-300/60 */
+    --tw-ring-shadow: var(--tw-ring-inset) 0 0 0 calc(2px + var(--tw-ring-offset-width)) var(--tw-ring-color);
+    box-shadow: var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--shadow-neuron-active-glow);
+  }
+
+  .neuron-node.is-closed {
+    border-color: var(--color-neuron-closed-border);
+    box-shadow: var(--shadow-neuron-closed-glow);
+    --tw-ring-color: #fecaca; /* ring-red-200 */
+    --tw-ring-shadow: var(--tw-ring-inset) 0 0 0 calc(2px + var(--tw-ring-offset-width)) var(--tw-ring-color);
+    box-shadow: var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--shadow-neuron-closed-glow);
+  }
+
+  .neuron-node.is-input {
+    border-color: var(--color-neuron-input);
+  }
+
+  .neuron-node.is-output {
+    border-color: var(--color-neuron-output);
+  }
+}
