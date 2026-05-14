@@ -42,7 +42,6 @@
 	 * Toggles the auto-play state and triggers the associated callback.
 	 */
 	function togglePlay() {
-		isPlaying = !isPlaying;
 		onPlayPause();
 	}
 

@@ -209,6 +209,14 @@ export class SimulationService {
 		if (this.isPlaying) {
 			this.pause();
 		} else {
+			if (!this.isConnected) {
+				showToast('Not connected to engine', 'error');
+				return;
+			}
+			if (this.isHalted) {
+				showToast('Simulation is halted', 'warning');
+				return;
+			}
 			this.play();
 		}
 	}
