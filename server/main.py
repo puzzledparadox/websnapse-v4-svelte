@@ -73,8 +73,22 @@ def _prepare_system(message):
     for i in range(min(len(dsv_raw), num_rules)):
         dsv[i] = int(dsv_raw[i])
 
-    # Status vector (all open by default)
+    # Status vector: a neuron is CLOSED (st_next=0) if any of its rules
+    # is currently in a delay countdown (div[r]=1 and dsv[r]>0).
+    # Closed neurons cannot receive spikes this tick.
     st_next = np.ones(num_neurons, dtype=int)
+    rule_idx = 0
+    for neuron_idx, node in enumerate(raw_nodes):
+        ntype = node.get('neuronType', 'regular')
+        if ntype in ('input', 'Input', 'output', 'Output'):
+            continue
+        rule_count = len(node.get('rules', []))
+        for r in range(rule_count):
+            global_r = rule_idx + r
+            if global_r < num_rules and div[global_r] == 1:
+                st_next[neuron_idx] = 0
+                break
+        rule_idx += rule_count
 
     state = {
         'c_k': c_k,
@@ -116,6 +130,7 @@ async def websocket_simulate(websocket: WebSocket):
                         'dsv': res['dsv'].tolist(),
                         'rule_contribution': res['rule_contribution'].tolist(),
                         'iv': res['iv'].tolist(),
+                        'dv': res['dv'].tolist(),
                         'is_halted': res.get('is_halted', False)
                     })
 

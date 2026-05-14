@@ -206,22 +206,38 @@ def build_adjacency(edges, node_id_to_idx):
 # Core Matrix Engine  (unchanged from original)
 # ─────────────────────────────────────────────
 
-def get_next_configuration(c_k, st_k_plus_1, iv_k, m_pi, stv_k):
+def get_next_configuration(c_k, st_k_plus_1, iv, m_pi, stv_k):
     """
-    Computes the system configuration for the next time step (k+1).
-    Based on Definition 10 in WebSnapse Reloaded.
+    Computes next configuration. Consumption and production happen atomically
+    when a rule fires (iv == 1).  st_next only gates INCOMING spikes
+    (production from other neurons + stv_k), NOT consumption from a neuron's
+    own firing rule.
     """
-    net_gain = np.dot(iv_k, m_pi) + stv_k
-    effective_gain = st_k_plus_1 * net_gain
-    c_next = np.maximum(0, c_k + effective_gain)
+    m_consume = np.minimum(0, m_pi)   # negative entries: spikes removed from firing neuron
+    m_produce = np.maximum(0, m_pi)   # positive entries: spikes sent to targets
+
+    consumption = np.dot(iv, m_consume)            # always applied
+    production  = np.dot(iv, m_produce)            # gated by st_next
+    incoming    = st_k_plus_1 * (production + stv_k)
+
+    c_next = np.maximum(0, c_k + consumption + incoming)
     return c_next
 
 
-def get_indicator_vector(dv, div, dsv):
+def get_indicator_vector(dv, div, dsv, rule_delay_values):
     """
-    Algorithm 1: Computes which rules actually fire.
+    Computes which rules produce output this tick.
+    - Immediate rules (delay == 0): produce when selected (dv == 1).
+    - Delayed rules (delay > 0): produce ONLY when their countdown expires
+      (div == 1 from a prior selection, dsv == 0 now). They do NOT produce
+      on the tick they are selected, even if dsv happened to be 0.
     """
-    return (np.logical_or(dv, div) & (dsv == 0)).astype(int)
+    rule_delays = np.array(rule_delay_values, dtype=int)
+    # Delayed rule whose countdown has run out (was previously selected, now dsv=0)
+    delayed_fires   = (div == 1) & (dsv == 0)
+    # Immediate rule just selected with zero delay
+    immediate_fires = (dv == 1) & (rule_delays == 0)
+    return (delayed_fires | immediate_fires).astype(int)
 
 
 def update_delayed_indicator(div_prev, iv, dv, dsv):
@@ -246,22 +262,30 @@ def update_delay_status(dv, dsv, rule_delay_values):
 # Non-deterministic step
 # ─────────────────────────────────────────────
 
-def get_satisfied_rules(c_k, rules_metadata, node_index_map):
+def get_satisfied_rules(c_k, rules_metadata, div, dsv):
     """
     For each neuron, check which of its rules are satisfied by the
     neuron's current spike count.  Returns list-of-lists of global rule indices.
+
+    A neuron is CLOSED if any of its rules has an active delay countdown
+    (div[r] == 1 and dsv[r] > 0).  Closed neurons cannot select new rules.
     """
     satisfied = []
     for neuron_idx, neuron_rules in enumerate(rules_metadata):
         if not neuron_rules:
             satisfied.append([None])
             continue
+
+        # Closed = any rule for this neuron has div==1 (active delayed rule,
+        # whether still counting down OR about to fire on this tick)
+        is_closed = any(div[r_idx] == 1 for r_idx, _ in neuron_rules)
+        if is_closed:
+            satisfied.append([None])
+            continue
+
         spikes = c_k[neuron_idx]
         applicable = [r_idx for r_idx, r_check in neuron_rules if r_check(spikes)]
-        if not applicable:
-            satisfied.append([None])
-        else:
-            satisfied.append(applicable)
+        satisfied.append(applicable if applicable else [None])
     return satisfied
 
 
@@ -271,7 +295,8 @@ def get_all_next_nondet(current_state, rules_metadata, m_pi, stv_k, rule_delays)
     """
     num_rules = m_pi.shape[0]
     choices_per_neuron = get_satisfied_rules(
-        current_state['c_k'], rules_metadata, None
+        current_state['c_k'], rules_metadata,
+        current_state['div'], current_state['dsv']
     )
 
     all_possible_next = []
@@ -281,17 +306,19 @@ def get_all_next_nondet(current_state, rules_metadata, m_pi, stv_k, rule_delays)
             if idx is not None:
                 dv[idx] = 1
 
-        iv = get_indicator_vector(dv, current_state['div'], current_state['dsv'])
+        # Decrement dsv FIRST, then check iv against the new dsv.
+        # This ensures delay=d means exactly d ticks of being closed.
+        new_dsv = update_delay_status(dv, current_state['dsv'], rule_delays)
+        iv = get_indicator_vector(dv, current_state['div'], new_dsv, rule_delays)
         new_c = get_next_configuration(
             current_state['c_k'],
             current_state['st_next'],
             iv, m_pi, stv_k
         )
 
-        new_dsv = update_delay_status(dv, current_state['dsv'], rule_delays)
         new_div = update_delayed_indicator(current_state['div'], iv, dv, new_dsv)
 
-        # Compute spikes sent to each neuron by rules (for output tracking)
+        # rule_contribution: net change per neuron
         rule_contribution = np.dot(iv, m_pi)
 
         all_possible_next.append({
@@ -300,34 +327,35 @@ def get_all_next_nondet(current_state, rules_metadata, m_pi, stv_k, rule_delays)
             'div': new_div,
             'rule_contribution': rule_contribution,
             'iv': iv,
+            'dv': dv,
         })
 
-    # Halting detection
+    # ── Halting detection ──────────────────────────────────────────────────
+    # The system has halted when ALL of the following hold:
+    #   1. No external input is arriving (stv_k is the zero vector).
+    #   2. No delay countdowns are pending in any next state (dsv == 0).
+    #   3. Every possible next config is a fixed-point (c_k and div unchanged).
+    # Condition 2 prevents premature halting while neurons are still counting
+    # down their delays; the system is only done once all delays expire and
+    # nothing new can fire.
     is_stv_empty = np.all(stv_k == 0)
     all_halted = False
-    
-    with open('halt_debug.log', 'a') as f:
-        f.write(f"--- TICK CHECK ---\n")
-        f.write(f"stv_k: {stv_k}\n")
-        f.write(f"is_stv_empty: {is_stv_empty}\n")
-        f.write(f"current_c_k: {current_state['c_k']}\n")
-        
+
     if is_stv_empty:
         all_halted = True
         for nxt in all_possible_next:
-            with open('halt_debug.log', 'a') as f:
-                f.write(f"nxt_c_k: {nxt['c_k']}\n")
-            if not np.array_equal(nxt['c_k'], current_state['c_k']) or not np.array_equal(nxt['div'], current_state['div']):
+            delays_clear = np.all(np.array(nxt['dsv']) == 0)
+            config_same  = np.array_equal(nxt['c_k'], current_state['c_k'])
+            div_same     = np.array_equal(nxt['div'], current_state['div'])
+            if not (delays_clear and config_same and div_same):
                 all_halted = False
                 break
-    
-    with open('halt_debug.log', 'a') as f:
-        f.write(f"all_halted: {all_halted}\n\n")
-        
+
     for nxt in all_possible_next:
         nxt['is_halted'] = all_halted
 
     return all_possible_next
+
 
 
 # ─────────────────────────────────────────────

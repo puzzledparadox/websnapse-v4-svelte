@@ -9,10 +9,11 @@
 	import NodeCreationModal from '$lib/components/NodeCreationModal.svelte';
 	import ContextMenu from '$lib/components/ContextMenu.svelte';
 	import GalleryPanel from '$lib/components/GalleryPanel.svelte';
+	import BranchModal from '$lib/components/BranchModal.svelte';
 	import Toast, { showToast } from '$lib/components/Toast.svelte';
 	import { simulation } from '$lib/services/simulation.svelte';
 	import { type GallerySystem } from '$lib/constants/gallery';
-	import { onMount, untrack } from 'svelte';
+	import { onMount } from 'svelte';
 	import { ShieldAlert, LayoutGrid, Maximize, Sparkles, Radiation, Download, Trash2, Layers, Focus, Copy, Hash, PanelLeftClose, PanelLeftOpen } from 'lucide-svelte';
 	import dagre from 'dagre';
 	import '@xyflow/svelte/dist/style.css';
@@ -112,6 +113,33 @@
 		return orderedRules;
 	}
 
+	/**
+	 * Convert the per-rule dsv/div vectors from the backend into a
+	 * per-node delay value.  A node is "closed" whenever any of its rules has
+	 * div[r] == 1 (active delayed rule, counting down OR about to fire).
+	 * Returns delay = dsv[r] + 1 so that delay > 0 is guaranteed while closed.
+	 * The +1 ensures div=1 / dsv=0 ("about to fire") still marks the node closed.
+	 */
+	function buildNodeDelayMap(dsv: number[], div: number[]): Map<string, number> {
+		const delayMap = new Map<string, number>();
+		let ruleIdx = 0;
+		nodes.forEach(n => {
+			const ntype = n.data.neuronType;
+			if (ntype === 'input' || ntype === 'Input' || ntype === 'output' || ntype === 'Output') return;
+			const ruleCount = (n.data.rules || []).length;
+			let maxDelay = 0;
+			for (let r = 0; r < ruleCount; r++) {
+				const globalR = ruleIdx + r;
+				if (div[globalR] === 1) {
+					maxDelay = Math.max(maxDelay, dsv[globalR]);
+				}
+			}
+			delayMap.set(n.id, maxDelay);
+			ruleIdx += ruleCount;
+		});
+		return delayMap;
+	}
+
 	function formatSpikeTrain(train: string | number) {
 		if (train === undefined || train === null || train === '') return '-';
 		const str = String(train);
@@ -199,7 +227,6 @@
 		return () => {
 			window.removeEventListener('edge-label-contextmenu', handleEdgeLabelContext);
 			if (autoPlayInterval) clearInterval(autoPlayInterval);
-			if (previewInterval) clearInterval(previewInterval);
 		};
 	});
 
@@ -323,6 +350,16 @@
 			tick: tick
 		});
 
+		// Build per-node delay map from backend's per-rule dsv/div vectors.
+		const nodeDelayMap = buildNodeDelayMap(pos.dsv || [], pos.div || []);
+
+		// Build the set of node IDs that are CLOSED after this tick.
+		// Closed = delay > 0 (a delayed rule is still counting down).
+		// A closed neuron cannot send OR receive spikes, so its outgoing and
+		// incoming synapses must not animate.
+		const closedNodeIds = new Set<string>();
+		nodeDelayMap.forEach((delay, id) => { if (delay > 0) closedNodeIds.add(id); });
+
 		// Update nodes immutably to trigger Svelte Flow reactivity
 		nodes = nodes.map((n, i) => {
 			const ntype = n.data.neuronType;
@@ -355,20 +392,36 @@
 				}
 			}
 
+			// Visual firing logic:
+			// • A neuron is only considered "firing" (purple glow) when it actually
+			//   produces output (iv=1) and is no longer closed.
+			// • If a neuron is closed (delay > 0), it shows the red glow and countdown badge.
+			const newDelay = nodeDelayMap.get(n.id) ?? 0;
+
 			return {
 				...n,
 				data: {
 					...n.data,
 					spikes: newSpikes,
-					isFiring: firedNeurons.has(n.id)
+					delay: newDelay,
+					isFiring: !closedNodeIds.has(n.id) && firedNeurons.has(n.id)
 				}
 			};
 		});
 
-		// Activate firing animation on edges whose source neuron fired
+		// Activate firing animation on edges only when:
+		//   • the source neuron actually fired (is in firedNeurons), AND
+		//   • the source is not closed (cannot send), AND
+		//   • the target is not closed (cannot receive)
 		edges = edges.map(e => ({
 			...e,
-			data: { ...e.data, isFiring: firedNeurons.has(e.source) }
+			data: {
+				...e.data,
+				isFiring:
+					firedNeurons.has(e.source) &&
+					!closedNodeIds.has(e.source) &&
+					!closedNodeIds.has(e.target)
+			}
 		}));
 
 		systemState.div = pos.div;
@@ -739,68 +792,7 @@
 		}
 	});
 
-	let previewInterval: ReturnType<typeof setInterval> | null = null;
-	let previewIndex = $state(0);
 
-	$effect(() => {
-		if (simMode === 'guided' && simulation.possibilities && simulation.possibilities.length > 1 && !isHalted) {
-			if (!previewInterval) {
-				previewIndex = 0;
-				previewInterval = setInterval(() => {
-					previewIndex = (previewIndex + 1) % simulation.possibilities.length;
-				}, 1500); // 1.5s interval
-			}
-			
-			const pos = simulation.possibilities[previewIndex];
-			const previewFiredNeurons = new Set<string>();
-			
-			// Untrack nodes and edges so modifying them doesn't trigger this effect again
-			const currentNodes = untrack(() => nodes);
-			const currentEdges = untrack(() => edges);
-
-			currentNodes.forEach((n, i) => {
-				const ntype = n.data.neuronType;
-				if (ntype === 'input' || ntype === 'Input') {
-					const train = String(n.data.spikes);
-					if (train.length > 0 && train[0] === '1') {
-						previewFiredNeurons.add(n.id);
-					}
-				} else if (ntype !== 'output' && ntype !== 'Output') {
-					if (pos.rule_contribution && pos.rule_contribution[i] < 0) {
-						previewFiredNeurons.add(n.id);
-					}
-				}
-			});
-
-			nodes = currentNodes.map(n => ({
-				...n,
-				data: { ...n.data, previewFiring: previewFiredNeurons.has(n.id) }
-			}));
-
-			edges = currentEdges.map(e => ({
-				...e,
-				data: { ...e.data, previewFiring: previewFiredNeurons.has(e.source) }
-			}));
-
-		} else {
-			if (previewInterval) {
-				clearInterval(previewInterval);
-				previewInterval = null;
-				
-				const currentNodes = untrack(() => nodes);
-				const currentEdges = untrack(() => edges);
-				
-				nodes = currentNodes.map(n => ({
-					...n,
-					data: { ...n.data, previewFiring: undefined }
-				}));
-				edges = currentEdges.map(e => ({
-					...e,
-					data: { ...e.data, previewFiring: undefined }
-				}));
-			}
-		}
-	});
 </script>
 
 <main class="flex h-screen w-screen overflow-hidden">
@@ -940,43 +932,21 @@
 			</button>
 		</div>
 
-		<!-- Simulation Controls (Kept for existing functionality) -->
-		<div class="mt-2 border-t pt-4">
-			<h3 class="mb-2 text-sm font-semibold text-gray-700">Manual Simulation</h3>
-			<button
-				onclick={handleStep}
-				class="w-full rounded bg-gray-800 p-2 text-sm font-semibold text-white hover:bg-gray-900 disabled:opacity-50"
-				disabled={!simulation.isConnected || isHalted}
-			>
-				{isHalted ? 'System Halted' : 'Step Simulation'}
-			</button>
-			{#if simulation.possibilities && simulation.possibilities.length > 0}
-				<div class="mt-4 flex max-h-40 flex-col gap-2 overflow-y-auto">
-					<h3 class="text-xs font-bold text-gray-700">Next State Branches:</h3>
-					{#each simulation.possibilities as pos, i}
-						<button
-							onclick={() => applyBranch(pos)}
-							class="rounded border bg-white p-2 text-left text-xs shadow-sm transition-colors hover:border-purple-500 hover:bg-purple-50"
-						>
-							<div class="font-bold text-purple-700">Branch {i + 1}</div>
-							<div>
-								<span class="font-semibold text-gray-600">Spikes:</span> [{pos.c_k.join(', ')}]
-							</div>
-							<div>
-								<span class="font-semibold text-gray-600">Delay Status:</span> [{pos.dsv.join(
-									', '
-								)}]
-							</div>
-						</button>
-					{/each}
-				</div>
-			{/if}
-		</div>
+
 	</aside>
 
 	<!-- Visualization Canvas (WebSnapse Reloaded) -->
 	<section class="relative flex-1">
 		<Toolbar bind:activeTool={activeTool} bind:showHistory={showHistory} onClear={() => showClearModal = true} />
+		<!-- Non-Deterministic Branch Selection Modal (Guided Mode only) -->
+		{#if simMode === 'guided' && !isHalted}
+			<BranchModal
+				possibilities={simulation.possibilities}
+				{nodes}
+				{tick}
+				onSelect={(pos) => applyBranch(pos)}
+			/>
+		{/if}
 		<SimulationBar
 			isConnected={simulation.isConnected}
 			{isHalted}

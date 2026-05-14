@@ -27,7 +27,7 @@
 		isActive
 			? 'box-shadow: 0 0 16px 4px rgba(168, 85, 247, 0.4);'
 			: isClosed
-				? 'box-shadow: 0 0 12px 2px rgba(239, 68, 68, 0.25);'
+				? 'box-shadow: 0 0 14px 3px rgba(239, 68, 68, 0.35);'
 				: ''
 	);
 
@@ -86,6 +86,12 @@
 		>
 			{isInput ? 'Input' : 'Output'}
 		</div>
+	{:else if isClosed}
+		<!-- Closed/delay countdown badge -->
+		<div class="delay-badge">
+			<svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+			{data.delay}
+		</div>
 	{/if}
 
 	<!-- Top: Neuron ID and Spike Count -->
@@ -115,9 +121,9 @@
 
 	<!-- Bottom: Delay counter (always shown for regular nodes) -->
 	{#if !isInput && !isOutput}
-		<div class="mt-1 text-center text-[10px] font-bold uppercase tracking-tighter {isClosed ? 'text-red-600' : 'text-slate-400'}">
+		<div class="mt-1 text-center text-[10px] font-bold uppercase tracking-tighter {isClosed ? 'text-red-500' : 'text-slate-400'}">
 			{#if isClosed}
-				Closed ({data.delay})
+				Closed
 			{:else}
 				Open
 			{/if}
@@ -132,3 +138,36 @@
 		<Handle type="source" position={Position.Right} class="h-2 w-2 {handleColorClass}" />
 	{/if}
 </div>
+
+<style>
+	/* ─── Delay countdown badge ─── */
+	.delay-badge {
+		position: absolute;
+		top: -11px;
+		right: -10px;
+		display: flex;
+		align-items: center;
+		gap: 3px;
+		padding: 2px 7px 2px 5px;
+		background: #fef2f2;
+		border: 1.5px solid #f87171;
+		border-radius: 20px;
+		font-size: 10px;
+		font-weight: 700;
+		color: #dc2626;
+		white-space: nowrap;
+		animation: delay-pulse 1.2s ease-in-out infinite;
+		box-shadow: 0 0 6px rgba(239, 68, 68, 0.3);
+	}
+
+	@keyframes delay-pulse {
+		0%, 100% {
+			box-shadow: 0 0 4px rgba(239, 68, 68, 0.25);
+			border-color: #f87171;
+		}
+		50% {
+			box-shadow: 0 0 10px rgba(239, 68, 68, 0.55);
+			border-color: #dc2626;
+		}
+	}
+</style>
