@@ -72,7 +72,7 @@ def _prepare_system(message):
     rule_delays = np.array([pr['delay'] for pr in parsed_rules], dtype=int) if parsed_rules else np.array([], dtype=int)
 
     # Build stv_k for this tick (input neuron spike trains → target neurons)
-    stv_k = compute_stv_k(tick, raw_nodes, adjacency)
+    stv_k, inputs_active = compute_stv_k(tick, raw_nodes, adjacency)
 
     # Build current configuration vectors
     c_k = np.zeros(num_neurons, dtype=int)
@@ -123,7 +123,7 @@ def _prepare_system(message):
         'st_next': st_next,
     }
 
-    return state, rules_metadata, m_pi, stv_k, rule_delays, node_ids
+    return state, rules_metadata, m_pi, stv_k, rule_delays, node_ids, inputs_active
 
 
 @app.websocket("/ws/simulate")
@@ -154,9 +154,9 @@ async def websocket_simulate(websocket: WebSocket):
 
             # ── Regular simulation step ──
             if message.get('type') == 'step':
-                state, rules_metadata, m_pi, stv_k, rule_delays, node_ids = _prepare_system(message)
+                state, rules_metadata, m_pi, stv_k, rule_delays, node_ids, inputs_active = _prepare_system(message)
 
-                results = get_all_next_nondet(state, rules_metadata, m_pi, stv_k, rule_delays)
+                results = get_all_next_nondet(state, rules_metadata, m_pi, stv_k, rule_delays, inputs_active)
 
                 output_possibilities = []
                 for res in results:

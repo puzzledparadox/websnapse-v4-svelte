@@ -229,11 +229,15 @@ def compute_stv_k(tick, nodes, adjacency_input):
             `input_neuron_idx → [(target_idx, weight), ...]`.
 
     Returns:
-        numpy.ndarray: The `stv_k` array of length `num_neurons` representing
-        the externally injected spikes at this tick.
+        tuple:
+            - stv (numpy.ndarray): The `stv_k` array of length `num_neurons` representing
+              the externally injected spikes at this tick.
+            - inputs_active (bool): True if any input neuron still has bits remaining
+              in its spike train (including the current bit).
     """
     num_neurons = len(nodes)
     stv = np.zeros(num_neurons, dtype=int)
+    inputs_active = False
 
     for n_idx, node in enumerate(nodes):
         neuron_type = node.get('neuronType', 'regular')
@@ -241,12 +245,13 @@ def compute_stv_k(tick, nodes, adjacency_input):
             continue
 
         train = str(node.get('spikes', ''))
-        bit = int(train[0]) if len(train) > 0 and train[0] in ('0', '1') else 0
+        if len(train) > 0:
+            inputs_active = True
+            bit = int(train[0]) if train[0] in ('0', '1') else 0
+            for (target, weight) in adjacency_input.get(n_idx, []):
+                stv[target] += bit * weight
 
-        for (target, weight) in adjacency_input.get(n_idx, []):
-            stv[target] += bit * weight
-
-    return stv
+    return stv, inputs_active
 
 
 def build_adjacency(edges, node_id_to_idx):
@@ -422,7 +427,7 @@ def get_satisfied_rules(c_k, rules_metadata, div, dsv):
     return satisfied
 
 
-def get_all_next_nondet(current_state, rules_metadata, m_pi, stv_k, rule_delays):
+def get_all_next_nondet(current_state, rules_metadata, m_pi, stv_k, rule_delays, inputs_active=False):
     """
     Generates all possible next configurations considering non-determinism.
 
@@ -483,16 +488,12 @@ def get_all_next_nondet(current_state, rules_metadata, m_pi, stv_k, rule_delays)
 
     # ── Halting detection ──────────────────────────────────────────────────
     # The system has halted when ALL of the following hold:
-    #   1. No external input is arriving (stv_k is the zero vector).
+    #   1. No more external input is coming (inputs_active is False).
     #   2. No delay countdowns are pending in any next state (dsv == 0).
     #   3. Every possible next config is a fixed-point (c_k and div unchanged).
-    # Condition 2 prevents premature halting while neurons are still counting
-    # down their delays; the system is only done once all delays expire and
-    # nothing new can fire.
-    is_stv_empty = np.all(stv_k == 0)
     all_halted = False
 
-    if is_stv_empty:
+    if not inputs_active:
         all_halted = True
         for nxt in all_possible_next:
             delays_clear = np.all(np.array(nxt['dsv']) == 0)

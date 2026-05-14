@@ -65,14 +65,18 @@ export class SimulationService {
 
 				// In pseudorandom mode, automatically pick the first possibility
 				if (this.mode === 'pseudorandom' && this.possibilities.length > 0) {
-					this.applyBranch(this.possibilities[0]);
+					const firstBranch = this.possibilities[0];
+					this.applyBranch(firstBranch);
+					
+					// If the engine reports the system has halted, stop playback
+					if (firstBranch.is_halted) {
+						this.isHalted = true;
+						this.pause();
+						showToast('Simulation halted', 'info');
+					}
 				} else if (this.possibilities.length === 0 && this.tick > 0) {
 					this.isHalted = true;
-					this.isPlaying = false;
-					if (this.autoPlayInterval) {
-						clearInterval(this.autoPlayInterval);
-						this.autoPlayInterval = null;
-					}
+					this.pause();
 					showToast('Simulation halted', 'info');
 				}
 			}
@@ -203,6 +207,12 @@ export class SimulationService {
 		this.tick++;
 		this.recordHistory();
 		this.possibilities = [];
+
+		// Ensure guided mode also respects halting if the user picks a halting branch
+		if (pos.is_halted) {
+			this.isHalted = true;
+			this.pause();
+		}
 	}
 
 	togglePlayPause() {
