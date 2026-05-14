@@ -1,3 +1,12 @@
+<!--
+	@component
+	NeuronNode.svelte
+	
+	The core visual representation of an SN P system neuron within Svelte Flow.
+	Displays the neuron's ID, current spike count (rendered via KaTeX), active rules,
+	and dynamic styling indicating its state (open, closed, or actively firing).
+	Supports distinct styles for input, output, and regular neurons.
+-->
 <script lang="ts">
 	import { Handle, Position } from '@xyflow/svelte';
 	import Katex from 'svelte-katex';
@@ -47,6 +56,14 @@
 				: ''
 	);
 
+	/**
+	 * Formats a raw spike train string into a condensed LaTeX representation.
+	 * Groups identical consecutive characters into exponents.
+	 * Example: '11100' becomes '1^{3}\ 0^{2}'
+	 * 
+	 * @param train - The raw string or number representing the spikes.
+	 * @returns The condensed string formatted for KaTeX rendering.
+	 */
 	function formatSpikeTrain(train: string | number | undefined): string {
 		if (train === undefined || train === null) return '';
 		const str = String(train);

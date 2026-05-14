@@ -1,3 +1,12 @@
+<!--
+	@component
+	BranchModal.svelte
+	
+	Renders an overlay modal when the engine encounters a non-deterministic
+	branching point (multiple valid rules can fire, leading to different states).
+	Allows the user to manually select which execution path to follow for the
+	next simulation tick.
+-->
 <script lang="ts">
 	import Katex from 'svelte-katex';
 	import { GitBranch } from 'lucide-svelte';
@@ -15,8 +24,12 @@
 		onSelect: (pos: any) => void;
 	} = $props();
 
-	// Build the flat ordered-rules list: [{neuronId, rule}, …]
-	// Mirrors getOrderedRules() in +page.svelte — regular neurons only, rules in node order.
+	/**
+	 * Builds a flattened, ordered list of all rules across all regular neurons.
+	 * This order strictly mirrors the array structure used by the matrix engine.
+	 * 
+	 * @returns Array of objects containing the owning neuron's ID and the rule string.
+	 */
 	function getOrderedRules(): { neuronId: string; rule: string }[] {
 		const out: { neuronId: string; rule: string }[] = [];
 		nodes.forEach((n) => {
@@ -27,8 +40,13 @@
 		return out;
 	}
 
-	// For a possibility, return the list of {neuronId, rule} pairs that were SELECTED (dv[i] === 1)
-	// and are part of the non-deterministic conflict.
+	/**
+	 * Identifies which specific rules were selected in a given non-deterministic branch.
+	 * Filters out rules that are selected across ALL branches to highlight only the conflicts.
+	 * 
+	 * @param pos - A single possibility state object from the engine.
+	 * @returns Array of the conflicting rules that are active in this specific branch.
+	 */
 	function getSelectedRules(pos: any): { neuronId: string; rule: string }[] {
 		const ordered = getOrderedRules();
 		const selected: { neuronId: string; rule: string }[] = [];
@@ -52,7 +70,10 @@
 		return selected;
 	}
 
-	// Identify the neurons currently in conflict (where dv differs)
+	/**
+	 * Reactively computes the list of neuron IDs that are currently experiencing
+	 * a non-deterministic conflict (where different rules are chosen across branches).
+	 */
 	let conflictingNeurons = $derived.by(() => {
 		const ordered = getOrderedRules();
 		const neurons = new Set<string>();

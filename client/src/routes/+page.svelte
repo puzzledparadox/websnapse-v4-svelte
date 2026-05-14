@@ -1,3 +1,12 @@
+<!--
+	@component
+	+page.svelte
+	
+	The main application workspace for WebSnapse v4.
+	Orchestrates the Svelte Flow canvas, simulation state, WebSockets communication,
+	and layout management. It coordinates between the visual graph representation
+	and the mathematical matrix engine in the Python backend.
+-->
 <script lang="ts">
 	import { SvelteFlow, Background, Controls, MarkerType, useSvelteFlow, type Node, type Edge } from '@xyflow/svelte';
 	import CustomMiniMap from '$lib/components/CustomMiniMap.svelte';
@@ -114,11 +123,15 @@
 	}
 
 	/**
-	 * Convert the per-rule dsv/div vectors from the backend into a
-	 * per-node delay value.  A node is "closed" whenever any of its rules has
-	 * div[r] == 1 (active delayed rule, counting down OR about to fire).
-	 * Returns delay = dsv[r] + 1 so that delay > 0 is guaranteed while closed.
-	 * The +1 ensures div=1 / dsv=0 ("about to fire") still marks the node closed.
+	 * Converts the per-rule `dsv` (Delay Status Vector) and `div` (Delayed Indicator Vector)
+	 * received from the backend into a per-node delay map for UI rendering.
+	 * 
+	 * A node is considered "closed" if ANY of its rules has `div[r] == 1` 
+	 * (actively counting down OR about to fire).
+	 * 
+	 * @param dsv - Delay Status Vector.
+	 * @param div - Delayed Indicator Vector.
+	 * @returns A Map mapping `nodeId` -> `maxDelayValue`.
 	 */
 	function buildNodeDelayMap(dsv: number[], div: number[]): Map<string, number> {
 		const delayMap = new Map<string, number>();
@@ -140,6 +153,13 @@
 		return delayMap;
 	}
 
+	/**
+	 * Formats a raw spike train string into a condensed LaTeX representation.
+	 * Examples: "11100" -> "1^{3}\ 0^{2}".
+	 * 
+	 * @param train - Raw spike string or number.
+	 * @returns Condensed LaTeX string.
+	 */
 	function formatSpikeTrain(train: string | number) {
 		if (train === undefined || train === null || train === '') return '-';
 		const str = String(train);
@@ -163,6 +183,12 @@
 		return compressed;
 	}
 
+	/**
+	 * Captures a snapshot of the current canvas state and adds it to the
+	 * global `simulation.history` array for the State History table.
+	 * 
+	 * @param firedRules - An array of rule strings that fired to produce this state.
+	 */
 	function recordHistory(firedRules: string[] = []) {
 		const nodeStates: Record<string, any> = {};
 		nodes.forEach(n => {
@@ -234,6 +260,11 @@
 		};
 	});
 
+	/**
+	 * Triggers a single simulation step.
+	 * Packages the visual graph topology and delay vectors into a JSON payload
+	 * and sends it to the backend engine to calculate the next state(s).
+	 */
 	function handleStep() {
 		if (!simulation.isConnected || isHalted) return;
 
@@ -338,6 +369,12 @@
 		}
 	}
 
+	/**
+	 * Applies a selected non-deterministic branch possibility to the visual canvas.
+	 * This updates node spike counts, delay countdowns, and triggers synapse animations.
+	 * 
+	 * @param pos - The specific possibility state returned by the engine.
+	 */
 	function applyBranch(pos) {
 		// Track which neurons fired for edge animation
 		const firedNeurons = new Set<string>();
@@ -495,6 +532,9 @@
 		}
 	}
 
+	/**
+	 * Automatically layouts the graph from left-to-right using Dagre.
+	 */
 	function applyAutoLayout() {
 		const g = new dagre.graphlib.Graph();
 		g.setGraph({ rankdir: 'LR', marginx: 20, marginy: 20 });

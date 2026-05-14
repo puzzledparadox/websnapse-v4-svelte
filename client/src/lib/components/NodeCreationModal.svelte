@@ -1,3 +1,11 @@
+<!--
+	@component
+	NodeCreationModal.svelte
+	
+	A modal dialog form for creating or editing SN P neurons.
+	Allows the user to specify the neuron's ID, type (input, regular, output),
+	initial spike count/train, and an ordered list of firing/forgetting rules.
+-->
 <script lang="ts">
 	let { show = $bindable(false), onSubmit, onCancel, defaultId = '', initialNode = null } = $props();
 
@@ -8,10 +16,17 @@
 
 	let isEditMode = $derived(!!initialNode);
 
+	/**
+	 * Appends a new, blank rule template to the neuron's rule list.
+	 */
 	function handleAddRule() {
 		rules.push('a/a \\to a; 0');
 	}
 
+	/**
+	 * Packages the form data and bubbles it up via the `onSubmit` callback.
+	 * Filters out any empty rule strings before submission.
+	 */
 	function handleCreate() {
 		onSubmit({
 			id: nodeId || defaultId,
@@ -23,6 +38,9 @@
 		show = false;
 	}
 
+	/**
+	 * Closes the modal and triggers the optional `onCancel` callback.
+	 */
 	function handleCancel() {
 		if (onCancel) onCancel();
 		show = false;

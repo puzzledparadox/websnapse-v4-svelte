@@ -1,3 +1,12 @@
+<!--
+	@component
+	SimulationBar.svelte
+	
+	The main playback control toolbar anchored to the bottom of the canvas.
+	Provides controls to toggle simulation modes (pseudorandom vs. guided),
+	step forward/backward, play/pause auto-stepping, restart the engine,
+	and adjust the playback speed.
+-->
 <script lang="ts">
 	import {
 		Play,
@@ -29,30 +38,50 @@
 	// Computed: slider fill percentage
 	let fillPercent = $derived(((speed - speedMin) / (speedMax - speedMin)) * 100);
 
+	/**
+	 * Toggles the auto-play state and triggers the associated callback.
+	 */
 	function togglePlay() {
 		isPlaying = !isPlaying;
 		onPlayPause();
 	}
 
+	/**
+	 * Switches between pseudorandom (automatic) and guided (manual branching) modes.
+	 */
 	function toggleMode() {
 		mode = mode === 'pseudorandom' ? 'guided' : 'pseudorandom';
 		onModeChange(mode);
 	}
 
+	/**
+	 * Updates the playback speed multiplier when the slider is dragged.
+	 * 
+	 * @param e - The slider input event.
+	 */
 	function handleSpeedInput(e: Event) {
 		speed = parseFloat((e.target as HTMLInputElement).value);
 		onSpeedChange(speed);
 	}
 
+	/**
+	 * Stops playback and resets the simulation engine to tick 0.
+	 */
 	function handleRestart() {
 		isPlaying = false;
 		onRestart();
 	}
 
+	/**
+	 * Manually triggers a single simulation step forward.
+	 */
 	function handleStepForward() {
 		onStep();
 	}
 
+	/**
+	 * Manually triggers a single simulation step backward via history.
+	 */
 	function handleStepBack() {
 		onStepBack();
 	}

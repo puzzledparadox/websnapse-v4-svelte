@@ -1,3 +1,12 @@
+<!--
+	@component
+	SynapseEdge.svelte
+	
+	A custom Svelte Flow edge component representing an SN P system synapse.
+	Renders a bezier curve with an edge label showing the synaptic weight.
+	When the `isFiring` prop is true, it displays an animated marching-ants 
+	stroke to visualize spike propagation.
+-->
 <script lang="ts">
 	import { BaseEdge, getBezierPath, EdgeLabel } from '@xyflow/svelte';
 

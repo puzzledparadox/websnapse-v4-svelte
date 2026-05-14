@@ -1,3 +1,11 @@
+<!--
+	@component
+	Toast.svelte
+	
+	A global toast notification system. It exports a module-level `showToast`
+	function that can be called from anywhere in the app to display temporary,
+	stacking alert messages (success, error, info) in the bottom right corner.
+-->
 <script lang="ts" module>
 	import { CheckCircle, AlertCircle, Info, X } from 'lucide-svelte';
 
@@ -12,6 +20,13 @@
 	let toasts = $state<ToastItem[]>([]);
 	let nextId = 0;
 
+	/**
+	 * Pushes a new toast notification onto the screen.
+	 * 
+	 * @param message - The text content of the toast.
+	 * @param type - The visual style ('success', 'error', 'info'). Defaults to 'success'.
+	 * @param duration - Time in milliseconds before the toast auto-dismisses. Defaults to 3000ms.
+	 */
 	export function showToast(message: string, type: ToastItem['type'] = 'success', duration = 3000) {
 		const id = nextId++;
 		toasts = [...toasts, { id, message, type, duration }];
@@ -25,6 +40,11 @@
 </script>
 
 <script lang="ts">
+	/**
+	 * Manually removes a toast notification by its ID.
+	 * 
+	 * @param id - The unique identifier of the toast to remove.
+	 */
 	function dismiss(id: number) {
 		toasts = toasts.filter(t => t.id !== id);
 	}

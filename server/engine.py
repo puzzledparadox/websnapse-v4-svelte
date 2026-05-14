@@ -9,7 +9,18 @@ from itertools import product
 
 def normalize_latex(latex: str) -> str:
     """
-    Strip LaTeX markup so we can apply simple regex parsing.
+    Strips LaTeX markup from a rule string to allow for simple regex parsing.
+
+    This function removes formatting like '\\to', '\\lambda', and curly braces
+    around exponents, and strips all whitespaces, producing a uniform format
+    that is easier to process computationally.
+
+    Args:
+        latex (str): The raw LaTeX string representing an SN P system rule.
+
+    Returns:
+        str: A normalized, compressed string representation of the rule.
+
     Examples:
         'a^{2}/a \\to a; 1'  →  'a2/a→a;1'
         'a^3/a^2 \\to a; 0'  →  'a3/a2→a;0'
@@ -28,8 +39,16 @@ def normalize_latex(latex: str) -> str:
 
 def _extract_spike_count(token: str) -> int:
     """
-    Parse a spike token like 'a', 'a2', 'a3' into the exponent integer.
-    'a' → 1,  'a2' → 2,  'a10' → 10
+    Parses a spike token like 'a', 'a2', 'a3' into its integer exponent.
+
+    Args:
+        token (str): The spike representation token (e.g., 'a', 'a2', 'a^3').
+
+    Returns:
+        int: The integer number of spikes represented by the token.
+
+    Examples:
+        'a' → 1,  'a2' → 2,  'a10' → 10
     """
     token = token.strip()
     if token == 'a':
@@ -42,7 +61,11 @@ def _extract_spike_count(token: str) -> int:
 
 def parse_rule(latex: str):
     """
-    Parse one SN P rule string into structured metadata.
+    Parses a single SN P rule string into structured metadata.
+
+    The function normalizes the LaTeX input and extracts the necessary
+    properties defining the rule's behavior, including consumption, production,
+    delay, and whether it's a forgetting rule.
 
     Supported forms (after normalisation):
         a→a;0          (regex=1, consumed=1, produced=1, delay=0)
@@ -50,8 +73,19 @@ def parse_rule(latex: str):
         a3/a2→a;0      (regex=3, consumed=2, produced=1, delay=0)
         a2/a→a;1       (regex=2, consumed=1, produced=1, delay=1)
 
-    Returns dict:
-        { regex_spikes, consumed, produced, delay, is_forgetting }
+    Args:
+        latex (str): The raw LaTeX string representing the rule.
+
+    Returns:
+        dict: A dictionary containing rule metadata:
+            - regex_spikes (int): Spikes required in the neuron to trigger the rule.
+            - consumed (int): Spikes removed from the neuron when fired.
+            - produced (int): Spikes sent to downstream neurons.
+            - delay (int): The number of time steps before the rule finishes firing.
+            - is_forgetting (bool): True if the rule produces nothing ('λ').
+
+    Raises:
+        ValueError: If the rule string cannot be parsed (e.g., lacks an arrow '→').
     """
     norm = normalize_latex(latex)
 
@@ -95,12 +129,24 @@ def parse_rule(latex: str):
 
 def build_rules_metadata(nodes):
     """
-    Build rules_metadata: list-of-lists aligned to neurons.
-    Each inner list holds (global_rule_index, check_fn) pairs.
+    Builds the structured rules metadata required for the simulation matrix engine.
 
-    Also returns:
-      - parsed_rules: flat list of parsed rule dicts (one per global rule index)
-      - rule_to_neuron: maps global rule index → neuron index
+    Iterates over all neuron nodes in the system, parses their associated rules,
+    and constructs a callable list of functions that evaluate whether a rule
+    can be satisfied given a neuron's current spike count.
+
+    Args:
+        nodes (list of dict): A list of dictionary objects representing the neurons.
+
+    Returns:
+        tuple:
+            - rules_metadata (list of list of tuples): Aligned to neurons. Each inner list
+              holds `(global_rule_index, check_fn)` pairs where `check_fn` determines
+              if the rule is satisfied by a given number of spikes.
+            - parsed_rules (list of dict): A flat list of parsed rule dictionaries
+              (one per global rule index).
+            - rule_to_neuron (list of int): A mapping from `global_rule_index` to
+              its owner `neuron_idx`.
     """
     rules_metadata = []  # per-neuron list of (rule_idx, check_fn)
     parsed_rules = []    # flat list of parsed dicts
@@ -134,14 +180,26 @@ def build_rules_metadata(nodes):
 
 def build_m_pi(num_rules, num_neurons, parsed_rules, rule_to_neuron, adjacency):
     """
-    Build the Spiking Transition Matrix M_Pi.
+    Builds the Spiking Transition Matrix (M_Pi).
 
-    M_Pi shape: (num_rules, num_neurons)
-    For rule r owned by neuron i:
-        M_Pi[r, i] = -consumed      (spikes removed from owning neuron)
-        M_Pi[r, j] = +produced * w  (spikes sent to each downstream neuron j with weight w)
+    This matrix encodes the topology and weight distribution of the SN P system.
+    Each row corresponds to a rule and each column corresponds to a neuron.
+    The matrix defines how firing a rule alters the spike counts of the
+    surrounding network.
 
-    adjacency: dict  neuron_idx → [(target_idx, weight), ...]
+    For rule `r` owned by neuron `i`:
+        - `M_Pi[r, i] = -consumed` (spikes removed from the firing neuron)
+        - `M_Pi[r, j] = +produced * weight` (spikes sent to downstream neuron `j`)
+
+    Args:
+        num_rules (int): Total number of rules in the system.
+        num_neurons (int): Total number of neurons in the system.
+        parsed_rules (list of dict): The flat list of parsed rules.
+        rule_to_neuron (list of int): Mapping from rule index to neuron index.
+        adjacency (dict): Adjacency list mapping `neuron_idx → [(target_idx, weight), ...]`.
+
+    Returns:
+        numpy.ndarray: The `M_Pi` matrix of shape `(num_rules, num_neurons)`.
     """
     m_pi = np.zeros((num_rules, num_neurons), dtype=int)
 
@@ -158,13 +216,21 @@ def build_m_pi(num_rules, num_neurons, parsed_rules, rule_to_neuron, adjacency):
 
 def compute_stv_k(tick, nodes, adjacency_input):
     """
-    Build the Spike Train Vector for a given tick.
+    Builds the Spike Train Vector (stv_k) for a given tick in the simulation.
 
-    For each input neuron, read bit at position `tick` from its spike train,
-    then distribute to connected neurons scaled by edge weight.
+    For each input neuron, this function reads the bit (0 or 1) at position `tick`
+    from its pre-defined spike train. It then distributes that spike to connected
+    neurons, scaled by the respective edge weights.
 
-    adjacency_input: dict  input_neuron_idx → [(target_idx, weight), ...]
-    Returns: stv_k array of length num_neurons
+    Args:
+        tick (int): The current simulation time step (0-indexed).
+        nodes (list of dict): The list of node objects in the system.
+        adjacency_input (dict): Adjacency list mapping input neurons
+            `input_neuron_idx → [(target_idx, weight), ...]`.
+
+    Returns:
+        numpy.ndarray: The `stv_k` array of length `num_neurons` representing
+        the externally injected spikes at this tick.
     """
     num_neurons = len(nodes)
     stv = np.zeros(num_neurons, dtype=int)
@@ -185,11 +251,18 @@ def compute_stv_k(tick, nodes, adjacency_input):
 
 def build_adjacency(edges, node_id_to_idx):
     """
-    Build adjacency dicts from the edge list.
-    Returns two dicts:
-      adjacency_all:   neuron_idx → [(target_idx, weight)]  (for all non-input neurons)
-      adjacency_input: neuron_idx → [(target_idx, weight)]  (only input neurons — used for stv_k)
-    We return one combined adjacency; the caller filters by neuron type.
+    Builds adjacency dictionary mappings from the raw edge list.
+
+    Translates string-based edge connections into index-based structures to
+    be used efficiently during matrix generation.
+
+    Args:
+        edges (list of dict): List of edge objects from the frontend.
+        node_id_to_idx (dict): Mapping from a node's string ID to its integer index.
+
+    Returns:
+        dict: A combined adjacency mapping `neuron_idx → [(target_idx, weight)]`.
+        The caller is responsible for filtering by neuron type (e.g., input vs. regular).
     """
     adj = {}
     for e in edges:
@@ -208,10 +281,23 @@ def build_adjacency(edges, node_id_to_idx):
 
 def get_next_configuration(c_k, st_k_plus_1, iv, m_pi, stv_k):
     """
-    Computes next configuration. Consumption and production happen atomically
-    when a rule fires (iv == 1).  st_next only gates INCOMING spikes
-    (production from other neurons + stv_k), NOT consumption from a neuron's
-    own firing rule.
+    Computes the next configuration of spike counts in the system.
+
+    Consumption and production are conceptually separate due to delays.
+    Consumption happens instantly when a rule is fired (`iv == 1`).
+    Production from other neurons (and external inputs) is gated by `st_k_plus_1`
+    (the openness/closure state of the neuron on the NEXT tick).
+
+    Args:
+        c_k (numpy.ndarray): Current spike counts for each neuron.
+        st_k_plus_1 (numpy.ndarray): Open/closed status for neurons on the next tick.
+            `1` means open (can receive spikes), `0` means closed.
+        iv (numpy.ndarray): Indicator vector indicating which rules are firing.
+        m_pi (numpy.ndarray): The Spiking Transition Matrix.
+        stv_k (numpy.ndarray): Spike Train Vector (external inputs for this tick).
+
+    Returns:
+        numpy.ndarray: The next spike count configuration `c_{k+1}`.
     """
     m_consume = np.minimum(0, m_pi)   # negative entries: spikes removed from firing neuron
     m_produce = np.maximum(0, m_pi)   # positive entries: spikes sent to targets
@@ -226,11 +312,21 @@ def get_next_configuration(c_k, st_k_plus_1, iv, m_pi, stv_k):
 
 def get_indicator_vector(dv, div, dsv, rule_delay_values):
     """
-    Computes which rules produce output this tick.
-    - Immediate rules (delay == 0): produce when selected (dv == 1).
-    - Delayed rules (delay > 0): produce ONLY when their countdown expires
-      (div == 1 from a prior selection, dsv == 0 now). They do NOT produce
-      on the tick they are selected, even if dsv happened to be 0.
+    Computes the Indicator Vector (iv) to determine which rules produce output this tick.
+
+    - Immediate rules (`delay == 0`): Produce output when selected (`dv == 1`).
+    - Delayed rules (`delay > 0`): Produce output ONLY when their countdown expires
+      (`div == 1` from a prior selection, and `dsv == 0` now). They do NOT produce
+      on the tick they are selected, even if `dsv` was `0` prior.
+
+    Args:
+        dv (numpy.ndarray): The decision vector (rules selected to start this tick).
+        div (numpy.ndarray): The delayed indicator vector (rules currently waiting).
+        dsv (numpy.ndarray): The delay status vector (current countdown values).
+        rule_delay_values (list of int): Static delay values for all rules.
+
+    Returns:
+        numpy.ndarray: The calculated Indicator Vector `iv` for the current tick.
     """
     rule_delays = np.array(rule_delay_values, dtype=int)
     # Delayed rule whose countdown has run out (was previously selected, now dsv=0)
@@ -242,7 +338,20 @@ def get_indicator_vector(dv, div, dsv, rule_delay_values):
 
 def update_delayed_indicator(div_prev, iv, dv, dsv):
     """
-    Algorithm 2: Updates the status of rules waiting to fire.
+    Updates the status of rules waiting to fire (Algorithm 2).
+
+    Determines which rules should remain in a delayed/waiting state. A rule is
+    delayed if it was previously delayed but hasn't fired yet, or if it was
+    just selected and has a delay greater than 0.
+
+    Args:
+        div_prev (numpy.ndarray): Previous Delayed Indicator Vector.
+        iv (numpy.ndarray): Current Indicator Vector (rules that just fired).
+        dv (numpy.ndarray): Decision Vector (rules just selected).
+        dsv (numpy.ndarray): Updated Delay Status Vector (countdowns).
+
+    Returns:
+        numpy.ndarray: The newly updated Delayed Indicator Vector `div`.
     """
     still_delayed = div_prev & np.logical_not(iv)
     newly_delayed = dv & (dsv > 0)
@@ -251,7 +360,18 @@ def update_delayed_indicator(div_prev, iv, dv, dsv):
 
 def update_delay_status(dv, dsv, rule_delay_values):
     """
-    Algorithm 4: The 'Countdown' logic.
+    Updates the delay countdowns for all rules (Algorithm 4).
+
+    Decrements the countdown for currently active delayed rules. If a new rule
+    is selected (`dv == 1`), its countdown is reset to its initial delay value.
+
+    Args:
+        dv (numpy.ndarray): Decision Vector (rules selected this tick).
+        dsv (numpy.ndarray): Current Delay Status Vector (countdowns).
+        rule_delay_values (list of int): Static delay values for all rules.
+
+    Returns:
+        numpy.ndarray: The newly updated Delay Status Vector `dsv`.
     """
     new_dsv = np.maximum(0, dsv - 1)
     new_dsv = np.where(dv == 1, rule_delay_values, new_dsv)
@@ -264,11 +384,24 @@ def update_delay_status(dv, dsv, rule_delay_values):
 
 def get_satisfied_rules(c_k, rules_metadata, div, dsv):
     """
-    For each neuron, check which of its rules are satisfied by the
-    neuron's current spike count.  Returns list-of-lists of global rule indices.
+    Determines which rules can be fired for each neuron based on current spikes.
 
-    A neuron is CLOSED if any of its rules has an active delay countdown
-    (div[r] == 1 and dsv[r] > 0).  Closed neurons cannot select new rules.
+    For each neuron, this checks which of its rules are satisfied by the
+    neuron's current spike count `c_k`.
+    Critically, a neuron is considered 'CLOSED' if any of its rules has an active
+    delay countdown (`div[r] == 1` and `dsv[r] > 0`). Closed neurons cannot
+    select new rules.
+
+    Args:
+        c_k (numpy.ndarray): Current configuration (spike counts).
+        rules_metadata (list of list of tuples): Structured rule evaluation functions.
+        div (numpy.ndarray): Delayed Indicator Vector.
+        dsv (numpy.ndarray): Delay Status Vector.
+
+    Returns:
+        list of list of int/None: A list where each element represents the applicable
+        global rule indices for a specific neuron. Returns `[None]` if no rules
+        are applicable or if the neuron is closed.
     """
     satisfied = []
     for neuron_idx, neuron_rules in enumerate(rules_metadata):
@@ -291,7 +424,25 @@ def get_satisfied_rules(c_k, rules_metadata, div, dsv):
 
 def get_all_next_nondet(current_state, rules_metadata, m_pi, stv_k, rule_delays):
     """
-    Generates every possible next configuration based on rule non-determinism.
+    Generates all possible next configurations considering non-determinism.
+
+    When multiple rules can be fired within the same neuron, the SN P system
+    can branch into multiple possible futures. This function evaluates all valid
+    combinations of rule selections across the entire network and computes
+    the resulting next states for each branch.
+
+    Args:
+        current_state (dict): The state of the system at tick `k` (includes `c_k`,
+            `div`, `dsv`, `st_next`).
+        rules_metadata (list of list of tuples): Structured rule evaluation logic.
+        m_pi (numpy.ndarray): The Spiking Transition Matrix.
+        stv_k (numpy.ndarray): Spike Train Vector (external inputs).
+        rule_delays (list of int): Static delay values for all rules.
+
+    Returns:
+        list of dict: A list representing all valid next state objects. Each
+        state contains updated `c_k`, `dsv`, `div`, rule contributions, and
+        information about whether the system has halted.
     """
     num_rules = m_pi.shape[0]
     choices_per_neuron = get_satisfied_rules(
@@ -364,7 +515,23 @@ def get_all_next_nondet(current_state, rules_metadata, m_pi, stv_k, rule_delays)
 
 def get_configs_iterative(initial_config, time_limit, string_val, rules_metadata, m_pi, rule_delays):
     """
-    Iterative configuration search from WebSnapse 4 Everyone.
+    Performs an iterative depth-first search for valid system configurations.
+
+    Used primarily in the 'String Judge' mode, this iteratively applies
+    non-deterministic rule transitions up to a specified `time_limit`. It injects
+    bits from `string_val` one at a time into the input neuron.
+
+    Args:
+        initial_config (dict): The starting state dictionary of the SN P system.
+        time_limit (int): Maximum depth/ticks to explore.
+        string_val (str): The bitstring to feed into the input neuron over time.
+        rules_metadata (list of list of tuples): Structured rule evaluation logic.
+        m_pi (numpy.ndarray): The Spiking Transition Matrix.
+        rule_delays (list of int): Static delay values for all rules.
+
+    Returns:
+        list of tuple: A list of `(tick, configuration_dict)` representing
+        all reachable states throughout the depth-first search up to the limit.
     """
     stack = [(0, initial_config)]
     reachable_configs = []

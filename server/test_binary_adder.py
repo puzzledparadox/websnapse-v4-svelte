@@ -1,5 +1,11 @@
 """
-Binary Adder test -- verify the engine produces output 0010010.
+test_binary_adder.py
+
+Standalone testing script to verify the SN P system engine's correctness
+when simulating the 'Binary Adder' computational benchmark.
+This test manually constructs the system's nodes and edges, runs the engine
+loop, and verifies if the resulting spike train exactly matches the expected
+mathematical output (0010010).
 """
 import numpy as np
 from engine import (
@@ -10,6 +16,7 @@ from engine import (
     get_all_next_nondet,
 )
 
+# Define the initial network structure for the Binary Adder
 nodes = [
     {'id': 'in_0',  'neuronType': 'input',   'spikes': '111',  'rules': []},
     {'id': 'in_1',  'neuronType': 'input',   'spikes': '1101', 'rules': []},
@@ -53,6 +60,8 @@ output_spike_train = []
 prev_out_spikes = 0
 
 MAX_TICKS = 12
+
+# Run the simulation loop for a fixed number of ticks
 for t in range(MAX_TICKS):
     stv_k = compute_stv_k(t, nodes, adjacency)
 

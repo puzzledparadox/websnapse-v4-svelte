@@ -1,3 +1,11 @@
+<!--
+	@component
+	ContextMenu.svelte
+	
+	A dynamic right-click context menu used throughout the Svelte Flow workspace.
+	Renders an absolute-positioned menu with bounds-checking to ensure it doesn't
+	clip outside the browser viewport.
+-->
 <script lang="ts">
 	import { onMount } from 'svelte';
 	
@@ -28,6 +36,11 @@
 		}
 	});
 
+	/**
+	 * Closes the context menu when the user clicks anywhere outside of it.
+	 * 
+	 * @param event - The global mouse event.
+	 */
 	function handleClickOutside(event: MouseEvent) {
 		if (show && menuElement && !menuElement.contains(event.target as Node)) {
 			// Wait a tick to allow other click events to resolve (like SvelteFlow's built-ins)

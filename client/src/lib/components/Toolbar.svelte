@@ -1,3 +1,12 @@
+<!--
+	@component
+	Toolbar.svelte
+	
+	The main tool selection bar displayed at the top of the canvas.
+	Allows users to switch between interaction modes: Select, Add Neuron,
+	Add Synapse, Delete, and Pan. Also includes toggles for the History panel
+	and a button to clear the entire canvas.
+-->
 <script lang="ts">
 	import { 
 		MousePointer2, 
@@ -19,6 +28,12 @@
 		{ id: 'hand', icon: Hand, label: 'Pan (H)' }
 	];
 
+	/**
+	 * Listens for global keyboard events to enable fast tool switching via hotkeys.
+	 * Ignores keystrokes if the user is currently typing in an input field.
+	 * 
+	 * @param e - The keyboard event.
+	 */
 	function handleKeydown(e: KeyboardEvent) {
 		// Keyboard shortcuts (optional but nice for engineering tools)
 		if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;

@@ -1,3 +1,11 @@
+<!--
+	@component
+	GalleryPanel.svelte
+	
+	Sidebar panel providing a categorized, searchable gallery of pre-built
+	SN P systems (e.g., generators, arithmetic units). Users can preview
+	topology and load the systems directly into the main workspace.
+-->
 <script lang="ts">
 	import { GALLERY_SYSTEMS, GALLERY_CATEGORIES, type GallerySystem } from '$lib/constants/gallery';
 	import { Search, Zap, Calculator, GitCompare, Layout, ChevronRight } from 'lucide-svelte';
@@ -37,6 +45,11 @@
 		return systems;
 	});
 
+	/**
+	 * Handles the selection of a gallery system and bubbles the event up.
+	 * 
+	 * @param system - The selected GallerySystem object.
+	 */
 	function handleSelect(system: GallerySystem) {
 		onSelect(system);
 	}

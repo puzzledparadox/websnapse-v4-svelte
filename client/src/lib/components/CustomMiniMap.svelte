@@ -1,3 +1,12 @@
+<!--
+	@component
+	CustomMiniMap.svelte
+	
+	A custom implementation of a Svelte Flow minimap. It computes the bounding
+	box of all nodes, calculates a uniform scale to fit them within a fixed
+	viewport, and renders a live, interactive SVG map of the SN P network.
+	Includes panning support by clicking and dragging within the minimap.
+-->
 <script lang="ts">
 	import { useSvelteFlow } from '@xyflow/svelte';
 	import { onMount } from 'svelte';
@@ -74,7 +83,14 @@
 		return Math.min(MAP_WIDTH / bw, MAP_HEIGHT / bh);
 	});
 
-	// Transform flow coords → minimap coords
+	/**
+	 * Transforms coordinates from the main Svelte Flow canvas into
+	 * the local, scaled coordinate system of the minimap.
+	 * 
+	 * @param x - Flow X coordinate.
+	 * @param y - Flow Y coordinate.
+	 * @returns Object containing the scaled minimap {x, y} coordinates.
+	 */
 	function toMini(x: number, y: number) {
 		const bw = bounds.maxX - bounds.minX;
 		const bh = bounds.maxY - bounds.minY;
@@ -141,6 +157,13 @@
 	// Drag handling — click/drag the minimap to pan
 	let isDragging = $state(false);
 
+	/**
+	 * Translates a click or drag event on the minimap into a viewport
+	 * pan on the main Svelte Flow canvas.
+	 * 
+	 * @param clientX - The mouse event's clientX coordinate.
+	 * @param clientY - The mouse event's clientY coordinate.
+	 */
 	function panToMiniCoord(clientX: number, clientY: number) {
 		if (!svgEl) return;
 		const rect = svgEl.getBoundingClientRect();

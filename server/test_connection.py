@@ -4,6 +4,13 @@ import json
 import numpy as np
 
 async def test_simulation():
+    """
+    Tests the WebSocket connection to the FastAPI simulation endpoint.
+
+    Sends a mocked SN P system payload (representing an Even Positive Integer
+    Generator) to the backend engine and prints the resulting state branches
+    returned via the WebSocket connection.
+    """
     uri = "ws://localhost:8000/ws/simulate"
     async with websockets.connect(uri) as websocket:
         # Mocking the Even Positive Integer Generator system

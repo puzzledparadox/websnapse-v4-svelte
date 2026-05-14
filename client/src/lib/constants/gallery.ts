@@ -6,6 +6,9 @@
  * +page.svelte state, and rules use LaTeX notation for svelte-katex rendering.
  */
 
+/**
+ * Interface defining the structure of a pre-built SN P system in the gallery.
+ */
 export interface GallerySystem {
 	id: string;
 	title: string;
@@ -20,7 +23,15 @@ export interface GallerySystem {
 	};
 }
 
-// Shared edge styling helper
+/**
+ * Shared helper function to construct standard synapse edges for gallery systems.
+ * 
+ * @param id - The unique identifier for the edge.
+ * @param source - The ID of the source neuron.
+ * @param target - The ID of the target neuron.
+ * @param weight - The synaptic weight (default is 1).
+ * @returns A formatted Svelte Flow edge object.
+ */
 function makeEdge(
 	id: string,
 	source: string,

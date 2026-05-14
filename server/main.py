@@ -15,13 +15,39 @@ app = FastAPI()
 
 @app.get("/")
 def read_root():
+    """
+    Health check endpoint for the FastAPI server.
+
+    Returns:
+        dict: A status message indicating the simulation engine is running.
+    """
     return {"status": "WebSnapse v4 Simulation Engine Online"}
 
 
 def _prepare_system(message):
     """
-    Common helper: take a frontend message containing nodes + edges
-    and return everything the engine needs for one step.
+    Parses a frontend simulation step message and prepares the engine states.
+
+    This helper function translates the frontend's visual JSON representation
+    of nodes and edges into the internal matrix and vector representations
+    required by the SN P engine (e.g., M_Pi, c_k, div, dsv).
+
+    Args:
+        message (dict): The JSON payload from the frontend containing:
+            - nodes: List of neuron dictionaries.
+            - edges: List of connection dictionaries.
+            - tick: Current simulation tick integer.
+            - div: (Optional) Delayed Indicator Vector from previous step.
+            - dsv: (Optional) Delay Status Vector from previous step.
+
+    Returns:
+        tuple: A 6-tuple containing the prepared matrices and vectors:
+            - state (dict): Current engine state (`c_k`, `div`, `dsv`, `st_next`).
+            - rules_metadata (list): Structured rule evaluation functions.
+            - m_pi (numpy.ndarray): The Spiking Transition Matrix.
+            - stv_k (numpy.ndarray): The Spike Train Vector (inputs).
+            - rule_delays (numpy.ndarray): Static delays for all rules.
+            - node_ids (list): List of node IDs corresponding to the matrix indices.
     """
     raw_nodes = message['nodes']      # [{id, neuronType, spikes, rules}, ...]
     raw_edges = message['edges']      # [{source, target, weight}, ...]
@@ -102,6 +128,16 @@ def _prepare_system(message):
 
 @app.websocket("/ws/simulate")
 async def websocket_simulate(websocket: WebSocket):
+    """
+    WebSocket endpoint managing real-time SN P system simulations.
+
+    Maintains a persistent connection with the client, processing `step` and
+    `reset` messages. On `step`, it computes all non-deterministic branches
+    for the next state and sends the result possibilities back to the client.
+
+    Args:
+        websocket (WebSocket): The active connection instance.
+    """
     await websocket.accept()
     try:
         while True:
