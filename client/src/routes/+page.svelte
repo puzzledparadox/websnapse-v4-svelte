@@ -224,6 +224,10 @@
 			}
 		}
 		window.addEventListener('edge-label-contextmenu', handleEdgeLabelContext);
+
+		// Record initial state for history table
+		recordHistory();
+
 		return () => {
 			window.removeEventListener('edge-label-contextmenu', handleEdgeLabelContext);
 			if (autoPlayInterval) clearInterval(autoPlayInterval);
@@ -326,6 +330,10 @@
 			
 			if (simulation.history.length > 0) {
 				simulation.history.pop();
+				// Also clear rules for the state we stepped back into
+				if (simulation.history.length > 0) {
+					simulation.history[simulation.history.length - 1].ruleByNode = {};
+				}
 			}
 		}
 	}
@@ -335,12 +343,26 @@
 		const firedNeurons = new Set<string>();
 		
 		const firedRules: string[] = [];
-		if (pos.iv) {
-			const ruleNames = getOrderedRules();
-			pos.iv.forEach((fired: number, idx: number) => {
-				if (fired === 1 && ruleNames[idx]) firedRules.push(ruleNames[idx]);
-			});
-		}
+		const ruleNames = getOrderedRules();
+		const dv = pos.dv || [];
+		const iv = pos.iv || [];
+
+		// Record rules that are either SELECTED (dv) or FIRING (iv)
+		// This ensures delayed rules show up in history both when triggered and when they finish.
+		dv.forEach((selected: number, idx: number) => {
+			if (selected === 1 && ruleNames[idx]) {
+				firedRules.push(ruleNames[idx]);
+			}
+		});
+
+		iv.forEach((fired: number, idx: number) => {
+			if (fired === 1 && ruleNames[idx]) {
+				// Avoid duplicates if a rule is both selected and firing (e.g. delay 0)
+				if (!firedRules.includes(ruleNames[idx])) {
+					firedRules.push(ruleNames[idx]);
+				}
+			}
+		});
 
 		// Save to history before modifying state
 		simHistory.push({
@@ -426,9 +448,27 @@
 
 		systemState.div = pos.div;
 		systemState.dsv = pos.dsv;
+
+		// 1. Update the rules for the CURRENT tick (the one we are transitioning from)
+		if (simulation.history.length > 0) {
+			const lastEntry = simulation.history[simulation.history.length - 1];
+			const ruleByNode: Record<string, string> = {};
+			firedRules.forEach((fr) => {
+				const parts = fr.split(': ');
+				if (parts.length >= 2) {
+					const nodeId = parts[0];
+					const rule = parts.slice(1).join(': ');
+					ruleByNode[nodeId] = rule;
+				}
+			});
+			lastEntry.ruleByNode = ruleByNode;
+		}
+
+		// 2. Transition to the next tick
 		tick++;
-		
-		recordHistory(firedRules);
+
+		// 3. Record the NEW state with no rules picked yet
+		recordHistory([]);
 
 		if (pos.is_halted) {
 			isHalted = true;
@@ -436,6 +476,7 @@
 				clearInterval(autoPlayInterval);
 				autoPlayInterval = null;
 			}
+			showToast('Simulation halted', 'info');
 		}
 
 		// Clear possibilities after selection
