@@ -182,6 +182,7 @@
 
 <div class="custom-minimap" class:dragging={isDragging}>
 	<svg
+		role="presentation"
 		bind:this={svgEl}
 		width={MAP_WIDTH}
 		height={MAP_HEIGHT}

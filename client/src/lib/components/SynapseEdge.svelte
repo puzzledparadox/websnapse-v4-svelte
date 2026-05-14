@@ -45,6 +45,8 @@
 	y={labelY}
 >
 	<div
+		role="button"
+		tabindex="0"
 		class="nodrag nopan rounded px-1.5 py-0.5 text-[10px] font-bold shadow-sm border cursor-pointer
 			{isFiring ? 'bg-purple-100 text-purple-800 border-purple-300' : 'bg-white text-slate-700 border-slate-200'}"
 		oncontextmenu={(e) => {
