@@ -23,10 +23,15 @@
 	import { simulation } from '$lib/services/simulation.svelte';
 	import { type GallerySystem } from '$lib/constants/gallery';
 	import { onMount } from 'svelte';
-	import { ShieldAlert, LayoutGrid, Maximize, Sparkles, Radiation, Download, Trash2, Layers, Focus, Copy, Hash, PanelLeftClose, PanelLeftOpen } from 'lucide-svelte';
+	import { 
+		ShieldAlert, LayoutGrid, Maximize, Sparkles, Radiation, Download, 
+		Trash2, Layers, Focus, Copy, Hash, PanelLeftClose, PanelLeftOpen,
+		Database, Zap, Settings2, Table2, Info, Upload
+	} from 'lucide-svelte';
 	import dagre from 'dagre';
 	import '@xyflow/svelte/dist/style.css';
 	import Katex from 'svelte-katex';
+	import SidebarSection from '$lib/components/SidebarSection.svelte';
 
 	const nodeTypes = {
 		neuron: NeuronNode
@@ -47,6 +52,17 @@
 
 	let showClearModal = $state(false);
 	let sidebarOpen = $state(true);
+	let sidebarWidth = $state(384);
+	let isResizingSidebar = $state(false);
+
+	let openSections = $state({
+		persistence: true,
+		gallery: true,
+		config: true,
+		judging: true
+	});
+
+	let galleryHeight = $state(300);
 
 	let contextMenuState = $state({
 		show: false,
@@ -251,11 +267,27 @@
 		}
 		window.addEventListener('edge-label-contextmenu', handleEdgeLabelContext);
 
-		// Record initial state for history table
 		recordHistory();
+
+		function handleMouseMove(e: MouseEvent) {
+			if (isResizingSidebar) {
+				sidebarWidth = Math.max(280, Math.min(600, e.clientX));
+			}
+		}
+
+		function handleMouseUp() {
+			isResizingSidebar = false;
+			document.body.style.cursor = '';
+			document.body.style.userSelect = 'auto';
+		}
+
+		window.addEventListener('mousemove', handleMouseMove);
+		window.addEventListener('mouseup', handleMouseUp);
 
 		return () => {
 			window.removeEventListener('edge-label-contextmenu', handleEdgeLabelContext);
+			window.removeEventListener('mousemove', handleMouseMove);
+			window.removeEventListener('mouseup', handleMouseUp);
 			if (autoPlayInterval) clearInterval(autoPlayInterval);
 		};
 	});
@@ -890,130 +922,173 @@
 
 	<!-- String Computation Sidebar (WebSnapse 4 Everyone) -->
 	<aside
-		class="z-10 flex w-96 flex-col gap-4 overflow-y-auto border-r bg-white p-4 shadow-lg transition-all duration-300 ease-in-out"
+		class="z-10 flex flex-col overflow-hidden border-r bg-white shadow-lg transition-[margin,opacity] duration-300 ease-in-out"
 		class:sidebar-open={sidebarOpen}
 		class:sidebar-closed={!sidebarOpen}
+		style="width: {sidebarWidth}px; min-width: {sidebarWidth}px;"
 	>
-		<div class="flex items-center justify-between border-b pb-2">
+		<!-- Sidebar Header -->
+		<div class="flex items-center justify-between border-b bg-gray-50/50 px-4 py-3">
+			<div class="flex items-center gap-3">
+				<div class="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-600 text-white shadow-sm">
+					<Layers size={18} />
+				</div>
+				<div>
+					<h2 class="text-sm font-bold text-gray-800">WebSnapse Workspace</h2>
+					<div class="flex items-center gap-1.5">
+						<div
+							class="h-2 w-2 rounded-full {simulation.isConnected ? 'bg-green-500' : 'bg-red-500'}"
+						></div>
+						<span class="text-[10px] font-medium text-gray-500 uppercase tracking-wider"
+							>{simulation.isConnected ? 'Online' : 'Offline'}</span
+						>
+					</div>
+				</div>
+			</div>
 			<button
 				onclick={() => sidebarOpen = false}
-				class="rounded p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-purple-600"
+				class="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-gray-200 hover:text-gray-700"
 				title="Hide sidebar"
 			>
 				<PanelLeftClose size={18} />
 			</button>
-			<h2 class="text-xl font-bold text-gray-800">String Judge</h2>
-			<div class="flex items-center gap-2">
-				<div
-					class="h-3 w-3 rounded-full {simulation.isConnected ? 'bg-green-500' : 'bg-red-500'}"
-				></div>
-				<span class="text-xs font-medium text-gray-600"
-					>{simulation.isConnected ? 'Online' : 'Offline'}</span
-				>
-			</div>
 		</div>
 
-		<!-- Persistence & Gallery -->
-		<div class="mb-4 border-b pb-4">
-			<h3 class="mb-2 text-sm font-semibold text-gray-700">System Persistence</h3>
-			<div class="mb-2 flex gap-2">
-				<button
-					onclick={exportSystem}
-					class="flex-1 rounded border border-blue-600 px-2 py-1 text-xs font-semibold text-blue-600 transition-colors hover:bg-blue-50"
-				>
-					Export System
-				</button>
-				<button
-					onclick={() => fileInput.click()}
-					class="flex-1 rounded border border-green-600 px-2 py-1 text-xs font-semibold text-green-600 transition-colors hover:bg-green-50"
-				>
-					Import System
-				</button>
-				<input
-					type="file"
-					bind:this={fileInput}
-					accept=".json"
-					onchange={importSystem}
-					class="hidden"
-				/>
-			</div>
-
-			<h3 class="mt-4 mb-2 text-sm font-semibold text-gray-700">Pre-built Gallery</h3>
-			<GalleryPanel onSelect={loadGallerySystem} />
-		</div>
-
-		<!-- Max Search Depth -->
-		<div class="flex flex-col gap-1">
-			<label for="maxDepth" class="text-sm font-semibold text-gray-700"
-				>Max Search Depth (ticks)</label
-			>
-			<input
-				id="maxDepth"
-				type="number"
-				bind:value={timeLimit}
-				class="rounded border border-gray-300 p-2 text-sm focus:border-purple-500 focus:ring-1 focus:ring-purple-500 focus:outline-none"
-				min="1"
-			/>
-		</div>
-
-		<!-- Test Strings Table -->
-		<div class="flex-1 overflow-y-auto">
-			<div class="flex flex-col gap-2">
-				<h3 class="text-sm font-semibold text-gray-700">Test Strings</h3>
-				{#if testStrings.length === 0}
-					<p class="text-sm text-gray-500 italic">No strings added yet.</p>
-				{:else}
-					<div class="flex flex-col gap-2">
-						{#each testStrings as testString, i}
-							<div class="flex items-center gap-2 rounded border border-gray-200 bg-gray-50 p-2">
-								<input
-									type="text"
-									bind:value={testString.value}
-									placeholder="e.g. 1010"
-									class="w-full flex-1 rounded border border-gray-300 px-2 py-1 text-sm focus:border-purple-500 focus:outline-none"
-								/>
-								<div class="flex w-20 items-center justify-center">
-									{#if testString.status === 'idle'}
-										<span class="text-xs font-medium text-gray-500">Idle</span>
-									{:else if testString.status === 'judging'}
-										<span class="text-xs font-medium text-blue-500">Judging...</span>
-									{:else if testString.status === 'accepted'}
-										<span class="text-xs font-bold text-green-600">Accepted</span>
-									{:else if testString.status === 'rejected'}
-										<span class="text-xs font-bold text-red-600">Rejected</span>
-									{/if}
-								</div>
-								<button
-									onclick={() => removeString(i)}
-									class="flex h-6 w-6 items-center justify-center rounded bg-red-100 text-red-600 hover:bg-red-200"
-									title="Remove"
-								>
-									&times;
-								</button>
-							</div>
-						{/each}
+		<!-- Sidebar Content (Scrollable) -->
+		<div class="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar">
+			<!-- Persistence & Gallery -->
+			<SidebarSection title="System Storage" icon={Database} bind:isOpen={openSections.persistence}>
+				<div class="flex flex-col gap-3 pt-2">
+					<div class="flex gap-2">
+						<button
+							onclick={exportSystem}
+							class="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50/50 px-2 py-2 text-[11px] font-bold text-blue-700 transition-all hover:bg-blue-100 active:scale-[0.98]"
+						>
+							<Download size={14} />
+							Export
+						</button>
+						<button
+							onclick={() => fileInput.click()}
+							class="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50/50 px-2 py-2 text-[11px] font-bold text-emerald-700 transition-all hover:bg-emerald-100 active:scale-[0.98]"
+						>
+							<Upload size={14} />
+							Import
+						</button>
+						<input
+							type="file"
+							bind:this={fileInput}
+							accept=".json"
+							onchange={importSystem}
+							class="hidden"
+						/>
 					</div>
-				{/if}
-			</div>
+				</div>
+			</SidebarSection>
+
+			<SidebarSection title="Pre-built Gallery" icon={Zap} bind:isOpen={openSections.gallery} bind:height={galleryHeight}>
+				<div class="pt-2">
+					<GalleryPanel onSelect={loadGallerySystem} />
+				</div>
+			</SidebarSection>
+
+			<!-- Judging Configuration -->
+			<SidebarSection title="Judgement Config" icon={Settings2} bind:isOpen={openSections.config}>
+				<div class="flex flex-col gap-3 pt-2">
+					<div class="flex flex-col gap-1.5">
+						<div class="flex items-center justify-between">
+							<label for="maxDepth" class="text-[11px] font-bold text-gray-600 uppercase tracking-tight"
+								>Max Search Depth</label
+							>
+							<span class="rounded bg-purple-100 px-1.5 py-0.5 text-[10px] font-bold text-purple-700">{timeLimit} ticks</span>
+						</div>
+						<input
+							id="maxDepth"
+							type="range"
+							bind:value={timeLimit}
+							min="1"
+							max="500"
+							step="10"
+							class="h-1.5 w-full cursor-pointer appearance-none rounded-lg bg-gray-200 accent-purple-600"
+						/>
+						<p class="text-[10px] text-gray-400 italic">Maximum simulation ticks to explore before rejection.</p>
+					</div>
+				</div>
+			</SidebarSection>
+
+			<!-- Test Strings Table -->
+			<SidebarSection title="String Judgement" icon={Table2} bind:isOpen={openSections.judging} fill={true}>
+				<div class="flex flex-col gap-3 pt-2">
+					{#if testStrings.length === 0}
+						<div class="flex flex-col items-center justify-center rounded-xl border border-dashed border-gray-200 py-8 text-center">
+							<div class="mb-2 text-gray-300">
+								<Table2 size={32} />
+							</div>
+							<p class="px-4 text-[11px] text-gray-400">No bitstrings added to the test suite yet.</p>
+						</div>
+					{:else}
+						<div class="flex flex-col gap-2">
+							{#each testStrings as testString, i}
+								<div class="group relative flex items-center gap-2 rounded-xl border border-gray-100 bg-gray-50/50 p-2 transition-all hover:border-purple-200 hover:bg-white hover:shadow-sm">
+									<input
+										type="text"
+										bind:value={testString.value}
+										placeholder="e.g. 1010"
+										class="min-w-0 flex-1 bg-transparent px-2 py-1 text-xs font-medium text-gray-700 focus:outline-none"
+									/>
+									<div class="flex w-16 items-center justify-center">
+										{#if testString.status === 'idle'}
+											<span class="rounded-full bg-gray-100 px-2 py-0.5 text-[9px] font-bold text-gray-400 uppercase tracking-wider">Idle</span>
+										{:else if testString.status === 'judging'}
+											<span class="flex items-center gap-1 text-[9px] font-bold text-blue-500 uppercase tracking-wider">
+												<div class="h-1 w-1 animate-pulse rounded-full bg-blue-500"></div>
+												Judging
+											</span>
+										{:else if testString.status === 'accepted'}
+											<span class="rounded-full bg-green-100 px-2 py-0.5 text-[9px] font-bold text-green-600 uppercase tracking-wider">Accepted</span>
+										{:else if testString.status === 'rejected'}
+											<span class="rounded-full bg-red-100 px-2 py-0.5 text-[9px] font-bold text-red-600 uppercase tracking-wider">Rejected</span>
+										{/if}
+									</div>
+									<button
+										onclick={() => removeString(i)}
+										class="flex h-5 w-5 items-center justify-center rounded-full bg-gray-200 text-gray-500 transition-colors hover:bg-red-100 hover:text-red-600 active:scale-90"
+										title="Remove"
+									>
+										&times;
+									</button>
+								</div>
+							{/each}
+						</div>
+					{/if}
+					
+					<div class="mt-2 flex flex-col gap-2">
+						<button
+							onclick={addString}
+							class="flex w-full items-center justify-center gap-2 rounded-xl border border-purple-200 py-2.5 text-xs font-bold text-purple-600 transition-all hover:bg-purple-50 hover:border-purple-300"
+						>
+							<span class="text-lg leading-none">+</span> Add New String
+						</button>
+						<button
+							onclick={handleJudge}
+							class="flex w-full items-center justify-center gap-2 rounded-xl bg-purple-600 py-2.5 text-xs font-bold text-white shadow-md shadow-purple-200 transition-all hover:bg-purple-700 hover:shadow-lg active:scale-[0.98]"
+						>
+							<Zap size={14} fill="currentColor" />
+							Judge All Strings
+						</button>
+					</div>
+				</div>
+			</SidebarSection>
 		</div>
 
-		<!-- Actions -->
-		<div class="flex flex-col gap-2 border-t pt-4">
-			<button
-				onclick={addString}
-				class="w-full rounded border border-purple-600 px-4 py-2 text-sm font-semibold text-purple-600 transition-colors hover:bg-purple-50"
-			>
-				+ Add String
-			</button>
-			<button
-				onclick={handleJudge}
-				class="w-full rounded bg-purple-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-purple-700"
-			>
-				Judge All
-			</button>
-		</div>
-
-
+		<!-- Resize Handle -->
+		<div 
+			class="absolute right-0 top-0 h-full w-1 cursor-col-resize transition-colors hover:bg-purple-400/30"
+			onmousedown={(e) => {
+				isResizingSidebar = true;
+				document.body.style.cursor = 'col-resize';
+				document.body.style.userSelect = 'none';
+			}}
+		></div>
 	</aside>
 
 	<!-- Visualization Canvas (WebSnapse Reloaded) -->
@@ -1188,8 +1263,28 @@
 	}
 
 	.sidebar-closed {
-		margin-left: -24rem; /* -w-96 */
+		margin-left: -600px; /* Use a large enough value for transition */
 		opacity: 0;
 		pointer-events: none;
+	}
+
+	.custom-scrollbar::-webkit-scrollbar {
+		width: 4px;
+	}
+	.custom-scrollbar::-webkit-scrollbar-track {
+		background: transparent;
+	}
+	.custom-scrollbar::-webkit-scrollbar-thumb {
+		background: #e5e7eb;
+		border-radius: 10px;
+	}
+	.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+		background: #d1d5db;
+	}
+
+	/* Fix for handles cursor lag/inversion */
+	:global(.svelte-flow__handle) {
+		cursor: crosshair !important;
+		transition: none !important;
 	}
 </style>
