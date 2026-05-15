@@ -8,6 +8,7 @@
 	and the mathematical matrix engine in the Python backend.
 -->
 <script lang="ts">
+	import { env } from '$env/dynamic/public';
 	import { uiState } from '$lib/state/ui.svelte';
 	import { workspaceState } from '$lib/state/workspace.svelte';
 	import { judgementState } from '$lib/state/judgement.svelte';
@@ -59,7 +60,8 @@
 		isGeneratingGraph = true;
 
 		try {
-			const res = await fetch('http://127.0.0.1:8000/api/config-graph', {
+			const apiUrl = env.PUBLIC_API_URL || 'http://127.0.0.1:8000';
+			const res = await fetch(`${apiUrl}/api/config-graph`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({

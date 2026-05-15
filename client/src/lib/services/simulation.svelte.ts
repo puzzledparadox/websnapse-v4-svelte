@@ -1,3 +1,4 @@
+import { env } from '$env/dynamic/public';
 import { workspaceState } from '../state/workspace.svelte';
 import { uiState } from '../state/ui.svelte';
 import { showToast } from '../components/Toast.svelte';
@@ -51,7 +52,8 @@ export class SimulationService {
 	 */
 	connect() {
 		if (this.socket) return;
-		this.socket = new WebSocket('ws://localhost:8000/ws/simulate');
+		const wsUrl = env.PUBLIC_WS_URL || 'ws://localhost:8000';
+		this.socket = new WebSocket(`${wsUrl}/ws/simulate`);
 
 		this.socket.onopen = () => {
 			this.isConnected = true;

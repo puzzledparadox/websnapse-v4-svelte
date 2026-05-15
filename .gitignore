@@ -1,8 +1,14 @@
 # Node dependencies
 node_modules/
-.svelte_kit/
+.svelte-kit/
 build/
+dist/
+.vercel/
+
+# Environment files
 .env
+.env.*
+!.env.example
 
 # Python environments and cache
 venv/
@@ -15,12 +21,14 @@ __pycache__/
 
 # Papers
 papers/
+server/pdf_text.txt
 
 # Research and Testing
 server/test_*.py
 server/debug_*.py
 server/extract_*.py
 server/*.txt
+!server/requirements.txt
 server/*.pdf
 server/*.md
 !server/README.md

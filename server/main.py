@@ -1,5 +1,7 @@
 import numpy as np
 from fastapi import FastAPI, WebSocket
+from dotenv import load_dotenv
+load_dotenv()
 from engine import (
     build_rules_metadata,
     build_m_pi,
