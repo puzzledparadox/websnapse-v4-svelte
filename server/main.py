@@ -10,8 +10,21 @@ from engine import (
 )
 import json
 
+from fastapi.middleware.cors import CORSMiddleware
+
 app = FastAPI()
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+from config_graph import build_configuration_graph
+from engine import build_adjacency
 
 @app.get("/")
 def read_root():
@@ -22,6 +35,26 @@ def read_root():
         dict: A status message indicating the simulation engine is running.
     """
     return {"status": "WebSnapse v4 Simulation Engine Online"}
+
+@app.post("/api/config-graph")
+async def api_config_graph(message: dict):
+    """
+    Generates a configuration graph for the given SN P system.
+    Returns the nodes and edges representing the state space.
+    """
+    try:
+        state, rules_metadata, m_pi, stv_k, rule_delays, node_ids, inputs_active, adjacency = _prepare_system(message)
+        
+        raw_nodes = message.get('nodes', [])
+        
+        max_states = message.get('max_states', 500)
+        
+        result = build_configuration_graph(state, raw_nodes, adjacency, rules_metadata, m_pi, rule_delays, max_states)
+        return result
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return {"error": str(e), "traceback": traceback.format_exc()}, 500
 
 
 def _prepare_system(message):
@@ -80,13 +113,21 @@ def _prepare_system(message):
         ntype = n.get('neuronType', 'regular')
         spikes_val = n.get('spikes', 0)
         if ntype in ('input', 'Input'):
-            c_k[i] = 0  # input neurons feed via stv_k, not c_k
-        elif isinstance(spikes_val, str):
-            # Output neurons store spike trains as strings like "001"
-            # Their c_k is the accumulated count of 1s
+            c_k[i] = 0
+        elif ntype in ('output', 'Output') and isinstance(spikes_val, str) and any(c not in '01' for c in spikes_val):
+            # If it's a string that doesn't look like a binary train, try int
+            try:
+                c_k[i] = int(spikes_val)
+            except:
+                c_k[i] = spikes_val.count('1')
+        elif ntype in ('output', 'Output') and isinstance(spikes_val, str):
+            # Likely a binary train
             c_k[i] = spikes_val.count('1')
         else:
-            c_k[i] = int(spikes_val)
+            try:
+                c_k[i] = int(spikes_val)
+            except:
+                c_k[i] = 0
 
     # Delay vectors — sized to num_rules
     div_raw = message.get('div', [0] * num_rules)
@@ -99,19 +140,19 @@ def _prepare_system(message):
     for i in range(min(len(dsv_raw), num_rules)):
         dsv[i] = int(dsv_raw[i])
 
-    # Status vector: a neuron is CLOSED (st_next=0) if any of its rules
-    # is currently in a delay countdown (div[r]=1 and dsv[r]>0).
-    # Closed neurons cannot receive spikes this tick.
+    # Status vector: a neuron is CLOSED (st_next=0) only if it has an active
+    # delay with dsv > 1 (still counting down). On the tick it spikes
+    # (dsv == 1, about to decrement to 0), the neuron is OPEN.
     st_next = np.ones(num_neurons, dtype=int)
     rule_idx = 0
     for neuron_idx, node in enumerate(raw_nodes):
         ntype = node.get('neuronType', 'regular')
-        if ntype in ('input', 'Input', 'output', 'Output'):
+        if ntype in ('input', 'Input'):
             continue
         rule_count = len(node.get('rules', []))
         for r in range(rule_count):
             global_r = rule_idx + r
-            if global_r < num_rules and div[global_r] == 1:
+            if global_r < num_rules and div[global_r] == 1 and dsv[global_r] > 1:
                 st_next[neuron_idx] = 0
                 break
         rule_idx += rule_count
@@ -123,7 +164,7 @@ def _prepare_system(message):
         'st_next': st_next,
     }
 
-    return state, rules_metadata, m_pi, stv_k, rule_delays, node_ids, inputs_active
+    return state, rules_metadata, m_pi, stv_k, rule_delays, node_ids, inputs_active, adjacency
 
 
 @app.websocket("/ws/simulate")
@@ -154,9 +195,9 @@ async def websocket_simulate(websocket: WebSocket):
 
             # ── Regular simulation step ──
             if message.get('type') == 'step':
-                state, rules_metadata, m_pi, stv_k, rule_delays, node_ids, inputs_active = _prepare_system(message)
+                state, rules_metadata, m_pi, stv_k, rule_delays, node_ids, inputs_active, adjacency = _prepare_system(message)
 
-                results = get_all_next_nondet(state, rules_metadata, m_pi, stv_k, rule_delays, inputs_active)
+                results = get_all_next_nondet(state, rules_metadata, m_pi, stv_k, rule_delays, adjacency, inputs_active)
 
                 output_possibilities = []
                 for res in results:

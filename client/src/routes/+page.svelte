@@ -22,14 +22,16 @@
 	import ContextMenu from '$lib/components/ContextMenu.svelte';
 	import GalleryPanel from '$lib/components/GalleryPanel.svelte';
 	import BranchModal from '$lib/components/BranchModal.svelte';
+	import ConfigGraphModal from '$lib/components/ConfigGraphModal.svelte';
 	import Toast, { showToast } from '$lib/components/Toast.svelte';
 	import { simulation } from '$lib/services/simulation.svelte';
+	import { benchmark } from '$lib/services/benchmark.svelte';
 	import { type GallerySystem } from '$lib/constants/gallery';
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { 
 		ShieldAlert, LayoutGrid, Maximize, Sparkles, Radiation, Download, 
 		Trash2, Layers, Focus, Copy, Hash, PanelLeftClose, PanelLeftOpen,
-		Database, Zap, Settings2, Table2, Info, Upload
+		Database, Zap, Settings2, Table2, Info, Upload, Network
 	} from 'lucide-svelte';
 	import dagre from 'dagre';
 	import '@xyflow/svelte/dist/style.css';
@@ -46,6 +48,44 @@
 
 	// Svelte 5 Runes for reactive state
 	const { screenToFlowPosition, fitView, setCenter } = useSvelteFlow();
+
+	let configGraphData = $state<{nodes: any[], edges: any[], limit_reached: boolean} | null>(null);
+	let isGeneratingGraph = $state(false);
+	let maxStates = $state(500);
+
+	async function generateConfigGraph() {
+		uiState.showConfigGraphModal = true;
+		configGraphData = null;
+		isGeneratingGraph = true;
+
+		try {
+			const res = await fetch('http://127.0.0.1:8000/api/config-graph', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					nodes: workspaceState.nodes.map(n => ({ 
+						...n.data, 
+						id: n.id, 
+						userLabel: n.data.id 
+					})),
+					edges: workspaceState.edges,
+					max_states: maxStates
+				})
+			});
+			if (!res.ok) {
+				const errorText = await res.text();
+				console.error('Config graph error:', res.status, errorText);
+				throw new Error(`Failed to generate graph: ${res.status}`);
+			}
+			configGraphData = await res.json();
+		} catch (e) {
+			console.error('Fetch error:', e);
+			showToast('Failed to generate configuration graph', 'error');
+			uiState.showConfigGraphModal = false;
+		} finally {
+			isGeneratingGraph = false;
+		}
+	}
 
 	onMount(() => {
 		simulation.connect();
@@ -254,22 +294,25 @@
 		if (!file) return;
 
 		const reader = new FileReader();
-		reader.onload = (e) => {
+		reader.onload = async (e) => {
 			try {
 				const parsed = JSON.parse(e.target.result as string);
+				benchmark.startLoad();
 				workspaceState.clear();
 				simulation.tick = 0;
 				simulation.isHalted = false;
 				simulation.possibilities = [];
 
 				// Rehydrate
-				setTimeout(() => {
+				setTimeout(async () => {
 					workspaceState.nodes = parsed.nodes || [];
 					workspaceState.edges = parsed.edges || [];
 					simulation.tick = parsed.tick || 0;
 					simulation.systemState = parsed.systemState || simulation.systemState;
 
 					simulation.reset(); // Send Reset/Initialize command
+					await tick();
+					benchmark.endLoad();
 				}, 50);
 			} catch (err) {
 				console.error('Failed to parse JSON', err);
@@ -279,7 +322,8 @@
 		reader.readAsText(file);
 	}
 
-	function loadGallerySystem(system: GallerySystem) {
+	async function loadGallerySystem(system: GallerySystem) {
+		benchmark.startLoad();
 		simulation.pause();
 		workspaceState.clear();
 		simulation.tick = 0;
@@ -287,7 +331,7 @@
 		simulation.possibilities = [];
 		simulation.history = [];
 
-		setTimeout(() => {
+		setTimeout(async () => {
 			workspaceState.nodes = JSON.parse(JSON.stringify(system.nodes));
 			workspaceState.edges = JSON.parse(JSON.stringify(system.edges)).map((e: any) => ({
 				...e,
@@ -298,6 +342,8 @@
 			simulation.snapshotInitialState();
 			simulation.reset();
 			setTimeout(() => fitView({ padding: 0.25, duration: 600 }), 100);
+			await tick();
+			benchmark.endLoad();
 			showToast(`"${system.title}" loaded successfully`, 'success');
 		}, 50);
 	}
@@ -476,6 +522,36 @@
 					</div>
 				</div>
 			</SidebarSection>
+
+			<!-- Configuration Graph Section -->
+			<SidebarSection title="Configuration Graph" icon={Network} bind:isOpen={uiState.openSections.configGraph}>
+				<div class="flex flex-col gap-3 pt-2">
+					<div class="flex flex-col gap-1.5">
+						<div class="flex items-center justify-between">
+							<label for="maxStates" class="text-[11px] font-bold tracking-tight text-gray-600 uppercase">Max States</label>
+							<span class="rounded bg-purple-100 px-1.5 py-0.5 text-[10px] font-bold text-purple-700">{maxStates}</span>
+						</div>
+						<input
+							id="maxStates"
+							type="range"
+							bind:value={maxStates}
+							min="10"
+							max="1000"
+							step="10"
+							class="h-1.5 w-full cursor-pointer appearance-none rounded-lg bg-gray-200 accent-purple-600"
+						/>
+						<p class="text-[10px] italic text-gray-400">Limit reachability state space to prevent crashes.</p>
+					</div>
+					<button
+						onclick={generateConfigGraph}
+						disabled={isGeneratingGraph}
+						class="flex w-full items-center justify-center gap-2 rounded-xl bg-purple-600 py-2.5 text-xs font-bold text-white shadow-md shadow-purple-200 transition-all hover:bg-purple-700 hover:shadow-lg active:scale-[0.98] disabled:opacity-50"
+					>
+						<Network size={14} fill="currentColor" />
+						Generate Graph
+					</button>
+				</div>
+			</SidebarSection>
 		</div>
 
 		<!-- Resize Handle -->
@@ -616,6 +692,9 @@
 				</div>
 			</div>
 		{/if}
+
+		<!-- Config Graph Modal -->
+		<ConfigGraphModal bind:show={uiState.showConfigGraphModal} data={configGraphData} />
 
 		<SvelteFlow
 			bind:nodes={workspaceState.nodes}

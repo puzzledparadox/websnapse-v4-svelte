@@ -11,7 +11,8 @@ export class UIState {
 		persistence: true,
 		gallery: true,
 		config: true,
-		judging: true
+		judging: true,
+		configGraph: true
 	});
 
 	// Context Menu State
@@ -25,6 +26,7 @@ export class UIState {
 	// Modals State
 	showClearModal = $state(false);
 	showNodeModal = $state(false);
+	showConfigGraphModal = $state(false);
 
 	// Node Edit/Create State
 	pendingNodePosition = $state({ x: 0, y: 0 });

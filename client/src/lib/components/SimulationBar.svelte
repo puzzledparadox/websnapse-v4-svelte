@@ -15,7 +15,8 @@
 		SkipForward,
 		Shuffle,
 		RotateCcw,
-		Compass
+		Compass,
+		Dices
 	} from 'lucide-svelte';
 
 	let {
@@ -25,10 +26,10 @@
 		onStepBack = () => {},
 		onPlayPause = () => {},
 		onRestart = () => {},
-		onModeChange = (mode: 'pseudorandom' | 'guided') => {},
+		onModeChange = (mode: 'pseudorandom' | 'guided' | 'random') => {},
 		onSpeedChange = (speed: number) => {}
 	} = $props();
-	let mode = $state<'pseudorandom' | 'guided'>('pseudorandom');
+	let mode = $state<'pseudorandom' | 'guided' | 'random'>('pseudorandom');
 	let speed = $state(1.5);
 
 	const speedMin = 0.25;
@@ -49,7 +50,10 @@
 	 * Switches between pseudorandom (automatic) and guided (manual branching) modes.
 	 */
 	function toggleMode() {
-		mode = mode === 'pseudorandom' ? 'guided' : 'pseudorandom';
+		if (mode === 'pseudorandom') mode = 'random';
+		else if (mode === 'random') mode = 'guided';
+		else mode = 'pseudorandom';
+		
 		onModeChange(mode);
 	}
 
@@ -91,22 +95,24 @@
 	<div class="sim-bar-inner">
 		<!-- Top Row: Transport Controls -->
 		<div class="transport-row">
-			<!-- Mode Toggle (Pseudorandom / Guided) -->
+			<!-- Mode Toggle (Pseudorandom / Random / Guided) -->
 			<button
 				class="transport-btn mode-btn"
-				class:active={mode === 'guided'}
+				class:active={mode !== 'pseudorandom'}
 				onclick={toggleMode}
-				title={mode === 'pseudorandom' ? 'Pseudorandom Mode (click to switch to Guided)' : 'Guided Mode (click to switch to Pseudorandom)'}
+				title={mode === 'pseudorandom' ? 'Pseudorandom Mode' : mode === 'random' ? 'Random Mode' : 'Guided Mode'}
 			>
 				{#if mode === 'pseudorandom'}
 					<Shuffle size={18} />
+				{:else if mode === 'random'}
+					<Dices size={18} />
 				{:else}
 					<Compass size={18} />
 				{/if}
 
 				<!-- Mode tooltip -->
 				<div class="transport-tooltip">
-					{mode === 'pseudorandom' ? 'Pseudorandom' : 'Guided'}
+					{mode === 'pseudorandom' ? 'Pseudorandom' : mode === 'random' ? 'Random' : 'Guided'}
 				</div>
 			</button>
 

@@ -59,6 +59,41 @@ def _extract_spike_count(token: str) -> int:
     return 1  # fallback
 
 
+def normalize_latex(latex: str):
+    """
+    Normalizes LaTeX rule strings to a consistent format for the parser.
+    Handles common LaTeX commands like \\to, \\lambda, and exponents.
+    """
+    norm = latex.replace('\\to', '→').replace('\\lambda', 'λ').replace(' ', '')
+    # Handle ^ exponents
+    import re
+    norm = re.sub(r'a\^\{?(\d+)\}?', r'a\1', norm)
+    return norm
+
+
+def _extract_spike_count(token: str):
+    """
+    Helper to extract numeric spike counts from 'a', 'a^n', or 'n'.
+    'a' -> 1
+    'a^n' -> n
+    'n' -> n
+    """
+    token = token.strip()
+    if token == 'λ' or token == '0':
+        return 0
+    if token == 'a':
+        return 1
+    # Check for 'a' followed by a number (e.g. a2 from a^2)
+    if token.startswith('a'):
+        num_part = token[1:]
+        return int(num_part) if num_part else 1
+    # Fallback for plain numbers
+    try:
+        return int(token)
+    except ValueError:
+        return 1
+
+
 def parse_rule(latex: str):
     """
     Parses a single SN P rule string into structured metadata.
@@ -157,7 +192,9 @@ def build_rules_metadata(nodes):
         neuron_type = node.get('neuronType', 'regular')
         raw_rules = node.get('rules', [])
 
-        if neuron_type in ('input', 'Input', 'output', 'Output') or not raw_rules:
+        # Input neurons currently bypass rules as they are driven by stv_k trains.
+        # Output neurons are allowed to have rules in theoretical models.
+        if neuron_type in ('input', 'Input') or not raw_rules:
             rules_metadata.append([])
             continue
 
@@ -170,7 +207,7 @@ def build_rules_metadata(nodes):
             # Create a check function that captures regex_spikes
             req = parsed['regex_spikes']
             check = (lambda r: (lambda c, _r=r: int(c) == _r))(req)
-            neuron_rule_list.append((global_idx, check))
+            neuron_rule_list.append((global_idx, check, parsed['consumed'], parsed['produced']))
             global_idx += 1
 
         rules_metadata.append(neuron_rule_list)
@@ -414,20 +451,23 @@ def get_satisfied_rules(c_k, rules_metadata, div, dsv):
             satisfied.append([None])
             continue
 
-        # Closed = any rule for this neuron has div==1 (active delayed rule,
-        # whether still counting down OR about to fire on this tick)
-        is_closed = any(div[r_idx] == 1 for r_idx, _ in neuron_rules)
+        # Closed = neuron has active delay with dsv > 1 (still counting down).
+        # On the tick it spikes (dsv == 1, about to decrement to 0), it is OPEN.
+        is_closed = any(
+            div[r_idx] == 1 and dsv[r_idx] > 1
+            for r_idx, rc, rcons, rprod in neuron_rules
+        )
         if is_closed:
             satisfied.append([None])
             continue
 
         spikes = c_k[neuron_idx]
-        applicable = [r_idx for r_idx, r_check in neuron_rules if r_check(spikes)]
+        applicable = [r_idx for r_idx, r_check, r_cons, r_prod in neuron_rules if r_check(spikes)]
         satisfied.append(applicable if applicable else [None])
     return satisfied
 
 
-def get_all_next_nondet(current_state, rules_metadata, m_pi, stv_k, rule_delays, inputs_active=False):
+def get_all_next_nondet(current_state, rules_metadata, m_pi, stv_k, rule_delays, adjacency, inputs_active=False):
     """
     Generates all possible next configurations considering non-determinism.
 
@@ -450,6 +490,18 @@ def get_all_next_nondet(current_state, rules_metadata, m_pi, stv_k, rule_delays,
         information about whether the system has halted.
     """
     num_rules = m_pi.shape[0]
+    num_neurons = len(rules_metadata)
+
+    # st_next: a neuron is closed (st_next=0) ONLY if it has an active delay
+    # with dsv > 1 (still counting down). On the tick it spikes (dsv==1,
+    # about to decrement to 0), it is OPEN and can receive spikes.
+    st_next = np.ones(num_neurons, dtype=int)
+    for neuron_idx, neuron_rules in enumerate(rules_metadata):
+        for r_idx, rc, rcons, rprod in neuron_rules:
+            if current_state['div'][r_idx] == 1 and current_state['dsv'][r_idx] > 1:
+                st_next[neuron_idx] = 0
+                break
+
     choices_per_neuron = get_satisfied_rules(
         current_state['c_k'], rules_metadata,
         current_state['div'], current_state['dsv']
@@ -462,15 +514,55 @@ def get_all_next_nondet(current_state, rules_metadata, m_pi, stv_k, rule_delays,
             if idx is not None:
                 dv[idx] = 1
 
-        # Decrement dsv FIRST, then check iv against the new dsv.
-        # This ensures delay=d means exactly d ticks of being closed.
         new_dsv = update_delay_status(dv, current_state['dsv'], rule_delays)
         iv = get_indicator_vector(dv, current_state['div'], new_dsv, rule_delays)
-        new_c = get_next_configuration(
-            current_state['c_k'],
-            current_state['st_next'],
-            iv, m_pi, stv_k
-        )
+
+        # This-tick openness: closed only if
+        #   (a) neuron has active delay with dsv > 1 (still counting), OR
+        #   (b) neuron just selected a NEW delayed rule this tick
+        # Neurons that spike this tick (dsv was 1, now 0) are OPEN.
+        this_tick_st_next = np.ones(num_neurons, dtype=int)
+        for n_idx, n_rules in enumerate(rules_metadata):
+            for r_idx, rc, rcons, rprod in n_rules:
+                if current_state['div'][r_idx] == 1 and current_state['dsv'][r_idx] > 1:
+                    this_tick_st_next[n_idx] = 0
+                    break
+            else:
+                # Check if a NEW delayed rule was just selected
+                for r_idx, rc, rcons, rprod in n_rules:
+                    if dv[r_idx] == 1 and rule_delays[r_idx] > 0:
+                        this_tick_st_next[n_idx] = 0
+                        break
+
+        # Consumption: spikes are removed immediately on selection (dv)
+        consumption = np.zeros(num_neurons, dtype=int)
+        for n_idx, n_rules in enumerate(rules_metadata):
+            for r_idx, r_check, r_cons, r_prod in n_rules:
+                if dv[r_idx] == 1:
+                    consumption[n_idx] -= r_cons
+
+        # Production: spikes arrive from fired rules (iv) and external inputs (stv_k)
+        # Blocked if the neuron is closed in THIS tick
+        production = np.zeros(num_neurons, dtype=int)
+        for r_idx, fired in enumerate(iv):
+            if fired == 1:
+                source_neuron_idx = -1
+                # Find which neuron this rule belongs to
+                for n_idx, n_rules in enumerate(rules_metadata):
+                    if any(r[0] == r_idx for r in n_rules):
+                        source_neuron_idx = n_idx
+                        break
+                if source_neuron_idx >= 0:
+                    produced_count = 0
+                    for r in rules_metadata[source_neuron_idx]:
+                        if r[0] == r_idx:
+                            produced_count = r[3]
+                            break
+                    for (target_idx, weight) in adjacency.get(source_neuron_idx, []):
+                        production[target_idx] += produced_count * weight
+
+        new_c = current_state['c_k'] + consumption + (production + stv_k) * this_tick_st_next
+        new_c = np.maximum(0, new_c) # Safety
 
         new_div = update_delayed_indicator(current_state['div'], iv, dv, new_dsv)
 
@@ -483,7 +575,7 @@ def get_all_next_nondet(current_state, rules_metadata, m_pi, stv_k, rule_delays,
             'div': new_div,
             'rule_contribution': rule_contribution,
             'iv': iv,
-            'dv': dv,
+            'dv': dv
         })
 
     # ── Halting detection ──────────────────────────────────────────────────

@@ -15,3 +15,12 @@ __pycache__/
 
 # Papers
 papers/
+
+# Research and Testing
+server/test_*.py
+server/debug_*.py
+server/extract_*.py
+server/*.txt
+server/*.pdf
+server/*.md
+!server/README.md

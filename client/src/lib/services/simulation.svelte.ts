@@ -1,6 +1,8 @@
 import { workspaceState } from '../state/workspace.svelte';
 import { uiState } from '../state/ui.svelte';
 import { showToast } from '../components/Toast.svelte';
+import { benchmark } from './benchmark.svelte';
+import { tick } from 'svelte';
 
 /**
  * Global service for managing WebSocket connections and simulation state.
@@ -25,7 +27,7 @@ export class SimulationService {
 	// Simulation Control State
 	tick = $state(0);
 	speed = $state(1.5);
-	mode = $state<'pseudorandom' | 'guided'>('pseudorandom');
+	mode = $state<'pseudorandom' | 'guided' | 'random'>('pseudorandom');
 	isHalted = $state(false);
 	isPlaying = $state(false);
 
@@ -56,8 +58,12 @@ export class SimulationService {
 			console.log('Connected to WebSnapse Simulation Engine');
 		};
 
-		this.socket.onmessage = (event) => {
+		this.socket.onmessage = async (event) => {
 			const data = JSON.parse(event.data);
+			
+			// If we are tracking compute time, end it now
+			benchmark.endCompute();
+
 			if (data.type === 'judge_result') {
 				this.judgeResults[data.string] = data.status;
 			} else {
@@ -66,10 +72,21 @@ export class SimulationService {
 				// In pseudorandom mode, automatically pick the first possibility
 				if (this.mode === 'pseudorandom' && this.possibilities.length > 0) {
 					const firstBranch = this.possibilities[0];
-					this.applyBranch(firstBranch);
+					await this.applyBranch(firstBranch);
 					
 					// If the engine reports the system has halted, stop playback
 					if (firstBranch.is_halted) {
+						this.isHalted = true;
+						this.pause();
+						showToast('Simulation halted', 'info');
+					}
+				} else if (this.mode === 'random' && this.possibilities.length > 0) {
+					// Pick a random branch
+					const randomIndex = Math.floor(Math.random() * this.possibilities.length);
+					const randomBranch = this.possibilities[randomIndex];
+					await this.applyBranch(randomBranch);
+
+					if (randomBranch.is_halted) {
 						this.isHalted = true;
 						this.pause();
 						showToast('Simulation halted', 'info');
@@ -97,6 +114,7 @@ export class SimulationService {
 
 	sendState(payload: any) {
 		if (this.socket && this.isConnected) {
+			if (payload.type === 'step') benchmark.startCompute();
 			this.socket.send(JSON.stringify(payload));
 		}
 	}
@@ -123,7 +141,8 @@ export class SimulationService {
 		});
 	}
 
-	applyBranch(pos: any) {
+	async applyBranch(pos: any) {
+		benchmark.startRender();
 		const firedNeurons = new Set<string>();
 		const firedRules: string[] = [];
 		const ruleNames = this.getOrderedRules();
@@ -213,6 +232,10 @@ export class SimulationService {
 			this.isHalted = true;
 			this.pause();
 		}
+
+		// Wait for Svelte 5 to flush DOM changes for re-render timing
+		await tick();
+		benchmark.endRender();
 	}
 
 	togglePlayPause() {
