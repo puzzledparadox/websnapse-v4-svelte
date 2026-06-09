@@ -29,7 +29,7 @@
 		fill = false,
 		height = $bindable(0),
 		minHeight = 100
-	} = $props<Props>();
+	} : Props = $props();
 
 	let isResizing = $state(false);
 	let sectionElement = $state<HTMLElement | null>(null);

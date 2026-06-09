@@ -249,7 +249,7 @@ export class SimulationService {
 				return;
 			}
 			if (this.isHalted) {
-				showToast('Simulation is halted', 'warning');
+				showToast('Simulation is halted', 'info');
 				return;
 			}
 			this.play();
@@ -370,3 +370,8 @@ export class SimulationService {
 }
 
 export const simulation = new SimulationService();
+
+// Expose globally for easy console access
+if (typeof window !== 'undefined') {
+	(window as any).simulation = simulation;
+}

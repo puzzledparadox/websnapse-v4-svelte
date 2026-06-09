@@ -118,7 +118,7 @@
 				<SvelteFlow
 					nodes={flowNodes}
 					edges={flowEdges}
-					{edgeTypes}
+					edgeTypes={edgeTypes as any}
 					nodesDraggable={true}
 					panOnDrag={true}
 					fitView

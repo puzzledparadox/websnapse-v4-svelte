@@ -10,12 +10,11 @@ def build_configuration_graph(initial_state, raw_nodes, adjacency, rules_metadat
 	
 	has_inputs = any(n.get('neuronType', 'regular') in ('input', 'Input') for n in raw_nodes)
 	
-	# Determine sorting order for neurons based on numeric ID (e.g. n1, n2, n3)
 	def get_numeric_id(node):
 		# Prioritize userLabel for sorting to match user's mental model
 		nid = node.get('userLabel', node.get('id', ''))
 		numeric = ''.join(filter(str.isdigit, str(nid)))
-		return int(numeric) if numeric else str(nid)
+		return (0, int(numeric)) if numeric else (1, str(nid))
 
 	indexed_nodes = list(enumerate(raw_nodes))
 	sorted_indices = [i for i, n in sorted(indexed_nodes, key=lambda x: get_numeric_id(x[1]))]

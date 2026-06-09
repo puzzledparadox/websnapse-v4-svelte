@@ -186,7 +186,7 @@
 						id: newId,
 						position: { x: node.position.x + 50, y: node.position.y + 50 },
 						data: { ...node.data, id: Math.random().toString(36).substring(2, 7) }
-					}];
+					} as any];
 				}},
 				{ divider: true },
 				{ label: 'Delete', icon: Trash2, action: () => {
@@ -223,8 +223,9 @@
 	}
 
 	function createPendingNode(data: { id: string, type: string, spikes: number | string, rules: string[], isEdit?: boolean }) {
-		if (data.isEdit && uiState.editTargetNode) {
-			workspaceState.nodes = workspaceState.nodes.map(n => n.id === uiState.editTargetNode.id ? {
+		const editNode = uiState.editTargetNode;
+		if (data.isEdit && editNode) {
+			workspaceState.nodes = workspaceState.nodes.map(n => n.id === editNode.id ? {
 				...n,
 				data: {
 					...n.data,
@@ -296,28 +297,30 @@
 		if (!file) return;
 
 		const reader = new FileReader();
-		reader.onload = async (e) => {
-			try {
-				const parsed = JSON.parse(e.target.result as string);
-				benchmark.startLoad();
-				workspaceState.clear();
-				simulation.tick = 0;
-				simulation.isHalted = false;
-				simulation.possibilities = [];
+		reader.onload = (e) => {
+			if (e.target) {
+				try {
+					const parsed = JSON.parse(e.target.result as string);
+					benchmark.startLoad();
+					workspaceState.clear();
+					simulation.tick = 0;
+					simulation.isHalted = false;
+					simulation.possibilities = [];
 
-				// Rehydrate
-				setTimeout(async () => {
-					workspaceState.nodes = parsed.nodes || [];
-					workspaceState.edges = parsed.edges || [];
-					simulation.tick = parsed.tick || 0;
-					simulation.systemState = parsed.systemState || simulation.systemState;
+					// Rehydrate
+					setTimeout(async () => {
+						workspaceState.nodes = parsed.nodes || [];
+						workspaceState.edges = parsed.edges || [];
+						simulation.tick = parsed.tick || 0;
+						simulation.systemState = parsed.systemState || simulation.systemState;
 
-					simulation.reset(); // Send Reset/Initialize command
-					await tick();
-					benchmark.endLoad();
-				}, 50);
-			} catch (err) {
-				console.error('Failed to parse JSON', err);
+						simulation.restart(); // Send Reset/Initialize command
+						await tick();
+						benchmark.endLoad();
+					}, 50);
+				} catch (err) {
+					console.error('Failed to parse JSON', err);
+				}
 			}
 			event.target.value = '';
 		};
@@ -342,7 +345,7 @@
 
 			simulation.systemState = JSON.parse(JSON.stringify(system.systemState));
 			simulation.snapshotInitialState();
-			simulation.reset();
+			simulation.restart();
 			setTimeout(() => fitView({ padding: 0.25, duration: 600 }), 100);
 			await tick();
 			benchmark.endLoad();
@@ -586,8 +589,8 @@
 			onStepBack={() => simulation.stepBack()}
 			onPlayPause={() => simulation.togglePlayPause()}
 			onRestart={() => simulation.restart()}
-			onModeChange={(m) => simulation.mode = m}
-			onSpeedChange={(s) => simulation.setSpeed(s)}
+			onModeChange={(m: 'pseudorandom' | 'guided' | 'random') => simulation.mode = m}
+			onSpeedChange={(s: number) => simulation.setSpeed(s)}
 		/>
 
 		<!-- Tick Counter HUD -->
