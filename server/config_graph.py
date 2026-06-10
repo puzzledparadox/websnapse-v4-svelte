@@ -16,10 +16,22 @@ def build_configuration_graph(initial_state, raw_nodes, adjacency, rules_metadat
 		numeric = ''.join(filter(str.isdigit, str(nid)))
 		return (0, int(numeric)) if numeric else (1, str(nid))
 
-	indexed_nodes = list(enumerate(raw_nodes))
+	# Filter out output neurons from the state/sorting
+	indexed_nodes = [(i, n) for i, n in enumerate(raw_nodes) if n.get('neuronType', 'regular') not in ('output', 'Output')]
 	sorted_indices = [i for i, n in sorted(indexed_nodes, key=lambda x: get_numeric_id(x[1]))]
 	original_to_sorted = {orig: rank for rank, orig in enumerate(sorted_indices)}
 	
+	non_output_neuron_indices = [idx for idx, n in enumerate(raw_nodes) if n.get('neuronType', 'regular') not in ('output', 'Output')]
+	
+	rule_idx = 0
+	non_output_rule_indices = []
+	for neuron_idx, node in enumerate(raw_nodes):
+		rule_count = len(node.get('rules', []))
+		is_output = node.get('neuronType', 'regular') in ('output', 'Output')
+		if not is_output:
+			non_output_rule_indices.extend(range(rule_idx, rule_idx + rule_count))
+		rule_idx += rule_count
+
 	clean_ids = []
 	for n in raw_nodes:
 		# Use userLabel (original data.id) for display, falling back to topological id
@@ -28,20 +40,25 @@ def build_configuration_graph(initial_state, raw_nodes, adjacency, rules_metadat
 		clean_ids.append(numeric if numeric else str(nid))
 
 	def get_state_sig(state, tick):
+		c_k_filtered = tuple(state['c_k'][i] for i in non_output_neuron_indices)
+		div_filtered = tuple(state['div'][i] for i in non_output_rule_indices)
+		dsv_filtered = tuple(state['dsv'][i] for i in non_output_rule_indices)
 		if has_inputs:
-			return (tuple(state['c_k']), tuple(state['div']), tuple(state['dsv']), tick)
+			return (c_k_filtered, div_filtered, dsv_filtered, tick)
 		else:
-			return (tuple(state['c_k']), tuple(state['div']), tuple(state['dsv']))
+			return (c_k_filtered, div_filtered, dsv_filtered)
 	
 	def get_node_label(state):
 		c_k = state['c_k']
 		div = state['div']
 		dsv = state['dsv']
 		
-		parts = ["" for _ in range(len(raw_nodes))]
+		parts = ["" for _ in range(len(sorted_indices))]
 		rule_idx = 0
 		for neuron_idx, node in enumerate(raw_nodes):
 			rule_count = len(node.get('rules', []))
+			is_output = node.get('neuronType', 'regular') in ('output', 'Output')
+			
 			delay_val = 0
 			for r in range(rule_count):
 				global_r = rule_idx + r
@@ -50,8 +67,9 @@ def build_configuration_graph(initial_state, raw_nodes, adjacency, rules_metadat
 					break
 			rule_idx += rule_count
 			
-			sorted_rank = original_to_sorted[neuron_idx]
-			parts[sorted_rank] = f"{c_k[neuron_idx]}/{delay_val}"
+			if not is_output:
+				sorted_rank = original_to_sorted[neuron_idx]
+				parts[sorted_rank] = f"{c_k[neuron_idx]}/{delay_val}"
 				
 		return "⟨" + ", ".join(parts) + "⟩"
 
@@ -67,11 +85,12 @@ def build_configuration_graph(initial_state, raw_nodes, adjacency, rules_metadat
 		
 		# We want to iterate in sorted neuron order for the label
 		# But dv/div/dsv are in original order.
-		neuron_labels = ["" for _ in range(len(raw_nodes))]
+		neuron_labels = ["" for _ in range(len(sorted_indices))]
 		
 		for neuron_idx, node in enumerate(raw_nodes):
 			n_id = clean_ids[neuron_idx]
 			rule_count = len(node.get('rules', []))
+			is_output = node.get('neuronType', 'regular') in ('output', 'Output')
 			
 			# 1. Check if neuron is in delay
 			is_closed = False
@@ -99,8 +118,9 @@ def build_configuration_graph(initial_state, raw_nodes, adjacency, rules_metadat
 					# 3. Idle
 					label = f"{n_id}0"
 			
-			sorted_rank = original_to_sorted[neuron_idx]
-			neuron_labels[sorted_rank] = label
+			if not is_output:
+				sorted_rank = original_to_sorted[neuron_idx]
+				neuron_labels[sorted_rank] = label
 			rule_idx += rule_count
 			
 		return ", ".join(neuron_labels)
