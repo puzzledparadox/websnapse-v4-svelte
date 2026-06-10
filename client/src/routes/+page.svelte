@@ -268,6 +268,7 @@
 
 	function handleClear() {
 		workspaceState.clear();
+		simulation.snapshotInitialState();
 		simulation.restart();
 	}
 
@@ -314,12 +315,16 @@
 						simulation.tick = parsed.tick || 0;
 						simulation.systemState = parsed.systemState || simulation.systemState;
 
+						simulation.snapshotInitialState();
 						simulation.restart(); // Send Reset/Initialize command
+						setTimeout(() => fitView({ padding: 0.25, duration: 600 }), 100);
 						await tick();
 						benchmark.endLoad();
+						showToast('System imported successfully', 'success');
 					}, 50);
 				} catch (err) {
 					console.error('Failed to parse JSON', err);
+					showToast('Failed to parse JSON file', 'error');
 				}
 			}
 			event.target.value = '';
