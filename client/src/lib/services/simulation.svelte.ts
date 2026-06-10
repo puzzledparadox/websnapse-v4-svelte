@@ -186,7 +186,7 @@ export class SimulationService {
 				const prevAccumulated = currentTrain.split('').filter((c: string) => c === '1').length;
 				const newAccumulated = pos.c_k[i] ?? prevAccumulated;
 				const delta = newAccumulated - prevAccumulated;
-				newSpikes = currentTrain + (delta > 0 ? '1' : '0');
+				newSpikes = pos.is_halted ? currentTrain : currentTrain + (delta > 0 ? '1' : '0');
 			} else {
 				if (pos.c_k[i] !== undefined) newSpikes = pos.c_k[i];
 				if (pos.rule_contribution && pos.rule_contribution[i] < 0) firedNeurons.add(n.id);
