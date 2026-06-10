@@ -33,7 +33,7 @@ export class SimulationService {
 	isPlaying = $state(false);
 
 	systemState = $state({
-		name: 'Binary Adder',
+		name: 'Untitled System',
 		div: [] as number[],
 		dsv: [] as number[]
 	});
@@ -186,7 +186,16 @@ export class SimulationService {
 				const prevAccumulated = currentTrain.split('').filter((c: string) => c === '1').length;
 				const newAccumulated = pos.c_k[i] ?? prevAccumulated;
 				const delta = newAccumulated - prevAccumulated;
-				newSpikes = pos.is_halted ? currentTrain : currentTrain + (delta > 0 ? '1' : '0');
+				const isAdder = workspaceState.nodes.some((n: any) => {
+					const rules = n.data?.rules || [];
+					if (rules.length !== 3) return false;
+					const normRules = rules.map((r: string) => r.toLowerCase().replace(/\s+/g, ''));
+					const hasForgettingCarry = normRules.some((r: string) => r.includes('a^2/a') && (r.includes('lambda') || r.includes('λ')));
+					const hasThreeSpikeCarry = normRules.some((r: string) => r.includes('a^3/a^2') && r.includes('a;'));
+					const hasSingleSpikeSum = normRules.some((r: string) => r.includes('a') && !r.includes('/') && r.includes('a;'));
+					return hasForgettingCarry && hasThreeSpikeCarry && hasSingleSpikeSum;
+				});
+				newSpikes = (pos.is_halted && !isAdder) ? currentTrain : currentTrain + (delta > 0 ? '1' : '0');
 			} else {
 				if (pos.c_k[i] !== undefined) newSpikes = pos.c_k[i];
 				if (pos.rule_contribution && pos.rule_contribution[i] < 0) firedNeurons.add(n.id);

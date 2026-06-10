@@ -63,7 +63,7 @@ MAX_TICKS = 12
 
 # Run the simulation loop for a fixed number of ticks
 for t in range(MAX_TICKS):
-    stv_k = compute_stv_k(t, nodes, adjacency)
+    stv_k, inputs_active = compute_stv_k(t, nodes, adjacency)
 
     state = {
         'c_k': c_k.copy(),
@@ -78,7 +78,7 @@ for t in range(MAX_TICKS):
             if len(n['spikes']) > 0:
                 n['spikes'] = n['spikes'][1:]
 
-    results = get_all_next_nondet(state, rules_metadata, m_pi, stv_k, rule_delays)
+    results = get_all_next_nondet(state, rules_metadata, m_pi, stv_k, rule_delays, adjacency, inputs_active)
 
     if not results:
         break

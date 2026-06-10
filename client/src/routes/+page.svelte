@@ -271,6 +271,11 @@
 
 	function handleClear() {
 		workspaceState.clear();
+		simulation.systemState = {
+			name: 'Untitled System',
+			div: [],
+			dsv: []
+		};
 		simulation.snapshotInitialState();
 		simulation.restart();
 	}
@@ -316,7 +321,11 @@
 						workspaceState.nodes = parsed.nodes || [];
 						workspaceState.edges = parsed.edges || [];
 						simulation.tick = parsed.tick || 0;
-						simulation.systemState = parsed.systemState || simulation.systemState;
+						simulation.systemState = parsed.systemState || {
+							name: 'Untitled System',
+							div: [],
+							dsv: []
+						};
 
 						simulation.snapshotInitialState();
 						simulation.restart(); // Send Reset/Initialize command
