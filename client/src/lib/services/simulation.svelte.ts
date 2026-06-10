@@ -367,6 +367,63 @@ export class SimulationService {
 		});
 		return delayMap;
 	}
+
+	renameNodeInHistory(oldId: string, newId: string) {
+		// Update this.history keys
+		this.history = this.history.map(entry => {
+			const newNodeStates = { ...entry.nodeStates };
+			if (oldId in newNodeStates) {
+				newNodeStates[newId] = newNodeStates[oldId];
+				delete newNodeStates[oldId];
+			}
+			const newRuleByNode = { ...entry.ruleByNode };
+			if (oldId in newRuleByNode) {
+				newRuleByNode[newId] = newRuleByNode[oldId];
+				delete newRuleByNode[oldId];
+			}
+			return {
+				...entry,
+				nodeStates: newNodeStates,
+				ruleByNode: newRuleByNode
+			};
+		});
+
+		// Update simHistoryStack node data.id
+		this.simHistoryStack = this.simHistoryStack.map(entry => {
+			const newNodes = entry.nodes.map((n: any) => {
+				if (n.data && n.data.id === oldId) {
+					return {
+						...n,
+						data: {
+							...n.data,
+							id: newId
+						}
+					};
+				}
+				return n;
+			});
+			return {
+				...entry,
+				nodes: newNodes
+			};
+		});
+
+		// Update initialNodes node data.id
+		if (this.initialNodes) {
+			this.initialNodes = this.initialNodes.map((n: any) => {
+				if (n.data && n.data.id === oldId) {
+					return {
+						...n,
+						data: {
+							...n.data,
+							id: newId
+						}
+					};
+				}
+				return n;
+			});
+		}
+	}
 }
 
 export const simulation = new SimulationService();

@@ -225,6 +225,9 @@
 	function createPendingNode(data: { id: string, type: string, spikes: number | string, rules: string[], isEdit?: boolean }) {
 		const editNode = uiState.editTargetNode;
 		if (data.isEdit && editNode) {
+			if (data.id !== editNode.data.id) {
+				simulation.renameNodeInHistory(editNode.data.id, data.id);
+			}
 			workspaceState.nodes = workspaceState.nodes.map(n => n.id === editNode.id ? {
 				...n,
 				data: {
@@ -621,7 +624,9 @@
 									<th class="border border-gray-300 px-4 py-2 font-bold">Time</th>
 									{#each workspaceState.nodes as node}
 										<th class="border border-gray-300 px-4 py-2 font-bold">
-											<Katex>{node.data.id}</Katex>
+											{#key node.data.id}
+												<Katex>{node.data.id}</Katex>
+											{/key}
 										</th>
 									{/each}
 								</tr>
